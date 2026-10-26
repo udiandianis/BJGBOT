@@ -114,7 +114,7 @@ class QueryProgressTests(unittest.TestCase):
         self.assertEqual(cells['LG'], '获取失败')
         self.assertEqual(cells['NK'], '暂未绑定')
 
-    def test_training_report_displays_totals_and_completion_colors(self):
+    def test_training_report_displays_counts_and_highlights_completion(self):
         problems = {key: set(range(4)) for key in trainings.TRAINING_LABELS}
         counts = {key: 0 for key in trainings.TRAINING_LABELS}
         counts.update({100: 4, 101: 3, 102: 1, 103: 2})
@@ -130,8 +130,11 @@ class QueryProgressTests(unittest.TestCase):
              patch.object(trainings.pyplot, 'close'), patch.object(trainings, 'REPORT_DIRECTORY'):
             trainings.get_png()
         row = axes.table.call_args.kwargs['cellText'][0]
-        self.assertEqual(row[1:6], ['4/4', '3/4', '1/4', '2/4', '0/4'])
-        self.assertEqual(row[-1], '10/72')
+        self.assertEqual(row[1:6], [4, 3, 1, 2, 0])
+        self.assertEqual(row[-1], 10)
         self.assertEqual(len({cells[1, column].set_facecolor.call_args.args[0] for column in range(1, 6)}), 5)
         cells[1, 5].set_facecolor.assert_called_once_with((1, 1, 1))
         cells[1, 1].set_facecolor.assert_called_once_with((0, 1, 0))
+        self.assertEqual(cells[1, 1].set_text_props.call_args.kwargs['weight'], 'bold')
+        self.assertEqual(cells[1, 2].set_text_props.call_args.kwargs['weight'], 'normal')
+        self.assertGreater(cells[1, 2].set_facecolor.call_args.args[0][0], 0.4)

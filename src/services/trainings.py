@@ -122,9 +122,9 @@ def get_png(on_progress=None):
     rows = []
     for record in records:
         row = {'姓名': record['name']}
-        row.update({label: '-' if record['failed'] else f'{record["by_training"][training_id]}/{len(problem_lists[training_id])}'
+        row.update({label: '-' if record['failed'] else record['by_training'][training_id]
                     for training_id, label in TRAINING_LABELS.items()})
-        row['总计'] = '查询失败' if record['failed'] else f'{record["total"]}/{total_problems}'
+        row['总计'] = '查询失败' if record['failed'] else record['total']
         rows.append(row)
     configure_matplotlib()
     figure, axes = pyplot.subplots(figsize=(20, max(2.5, len(rows) * 0.5)))
@@ -144,9 +144,11 @@ def get_png(on_progress=None):
                       for training_id in TRAINING_LABELS] + [(record['total'], total_problems)]
             for column, (completed, total) in enumerate(counts, start=1):
                 fraction = min(1, completed / max(1, total))
-                color = (1 - fraction, 1, 1 - fraction)
+                finished = total > 0 and completed >= total
+                color = (0, 1, 0) if finished else (1 - 0.55 * fraction, 1, 1 - 0.55 * fraction)
                 report[row_index, column].set_facecolor(color)
-                report[row_index, column].set_text_props(color='#111827')
+                report[row_index, column].set_text_props(color='#111827', fontfamily='DejaVu Sans',
+                                                       weight='bold' if finished else 'normal')
     figure.tight_layout()
     REPORT_DIRECTORY.mkdir(parents=True, exist_ok=True)
     figure.savefig(REPORT_DIRECTORY / 'luogu.png', bbox_inches='tight', dpi=300)
