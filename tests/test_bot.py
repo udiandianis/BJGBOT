@@ -55,7 +55,7 @@ class RoutingTests(unittest.TestCase):
     def test_help_matches_behavior(self):
         self.post(group_event('#help'))
         text = self.napcat.send_forward.call_args.args[1]
-        for description in ('#duel reset', '已绑定姓名且今日有提交', '#bind name', '来只关键词'):
+        for description in ('#duel reset', '已绑定姓名和班级且今日有提交', '#bind name', '来只关键词'):
             self.assertIn(description, text)
         for removed in ('set1', '素材'):
             self.assertNotIn(removed, text)
@@ -568,7 +568,7 @@ class ProviderAndMediaTests(unittest.TestCase):
             self.assertFalse(codeforces.fetch_user_metrics('new')['latest_submission_accepted'])
 
     def test_statistics_failure_is_not_zero(self):
-        sample = [{'qq_id': 1, 'name': 'Alice', 'codeforces_handle': 'alice', 'luogu_username': 'alice'}]
+        sample = [{'qq_id': 1, 'name': 'Alice', 'class_name': '计算机2302', 'codeforces_handle': 'alice', 'luogu_username': 'alice'}]
         def fetch(platform, provider, handle):
             if platform == 'CF':
                 raise RuntimeError('timeout')

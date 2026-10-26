@@ -17,7 +17,7 @@ def collect_statistics(on_progress=None):
     """并发采集用户今日统计并排名，抓取失败保留独立错误标记。"""
     records = {}
     pending_requests = {}
-    participants = [user for user in users.list_users() if user.get('name')]
+    participants = [user for user in users.list_users() if user.get('name') and user.get('class_name')]
     outstanding = {}
     completed = 0
     if on_progress:
@@ -56,7 +56,7 @@ def collect_statistics(on_progress=None):
         record['submitted'] = sum(metrics['submitted'] for metrics in record['platforms'].values() if metrics is not None)
     records = {user_id: record for user_id, record in records.items() if record['submitted'] > 0}
     if not records:
-        raise ValueError('暂无已绑定姓名且今日有提交的用户')
+        raise ValueError('暂无已绑定姓名、班级且今日有提交的用户')
     ranking = sorted(records.values(), key=lambda record: (bool(record['errors']), -record['accepted'], -record['submitted']))
     previous_score, current_rank = None, 0
     for record in ranking:

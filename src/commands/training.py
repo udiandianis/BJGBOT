@@ -10,7 +10,7 @@ def register(router, services, settings):
         ('chaoxing.homework', r'(?:待交作业|我的学习通)', lambda event: services.pending_homework(event.user_id),
          '@bot 待交作业：返回已绑定学习通账号最近到期的最多5项未交作业\n例：@bot 待交作业'),
         ('statistics.table', r'做题汇总', lambda event: services.statistics(event.group_id),
-         '@bot 做题汇总：查看已绑定姓名且今日有提交用户的AC提交数/总提交数，每5秒汇报进度；未绑定和查询失败单独标注\n例：@bot 做题汇总'),
+         '@bot 做题汇总：查看已绑定姓名和班级且今日有提交用户（不限入学年份）的AC提交数/总提交数，每5秒汇报进度；未绑定和查询失败单独标注\n例：@bot 做题汇总'),
         ('checkin', r'(?:签到|🦌)', lambda event: services.checkin(event.raw),
          '@bot 签到：在个人月历上标记今天，同日重复签到不会重复累计\n例：@bot 签到'),
     ]

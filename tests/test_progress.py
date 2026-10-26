@@ -48,9 +48,9 @@ class QueryProgressTests(unittest.TestCase):
 
     def test_statistics_counts_users_including_failed_queries(self):
         participants = [
-            {'qq_id': 1, 'name': '用户一', 'codeforces_handle': 'one', 'luogu_username': 'one'},
-            {'qq_id': 2, 'name': '用户二', 'codeforces_handle': 'two'},
-            {'qq_id': 3, 'name': '用户三'},
+            {'qq_id': 1, 'name': '用户一', 'class_name': '计算机2302', 'codeforces_handle': 'one', 'luogu_username': 'one'},
+            {'qq_id': 2, 'name': '用户二', 'class_name': '计算机2302', 'codeforces_handle': 'two'},
+            {'qq_id': 3, 'name': '用户三', 'class_name': '计算机2302'},
             {'qq_id': 4, 'name': None, 'codeforces_handle': 'excluded'},
         ]
         fetch = Mock(return_value={'today_accepted_submissions': 1, 'today_submissions': 2})
@@ -65,19 +65,22 @@ class QueryProgressTests(unittest.TestCase):
         self.assertIsNone(records[2]['platforms']['LG'])
         self.assertNotIn(3, records)
 
-    def test_statistics_requires_only_name_and_today_submissions(self):
+    def test_statistics_requires_name_class_and_submissions_without_year_limit(self):
         participants = [
-            {'qq_id': 1, 'name': '只有CF', 'codeforces_handle': 'active'},
-            {'qq_id': 2, 'name': '今日无提交', 'codeforces_handle': 'inactive'},
+            {'qq_id': 1, 'name': '只有CF', 'class_name': '计算机2302', 'enrollment_year': 2023, 'codeforces_handle': 'active'},
+            {'qq_id': 2, 'name': '今日无提交', 'class_name': '计算机2302', 'codeforces_handle': 'inactive'},
             {'qq_id': 3, 'name': None, 'codeforces_handle': 'unnamed'},
+            {'qq_id': 4, 'name': '未绑定班级', 'codeforces_handle': 'active'},
+            {'qq_id': 5, 'name': '没有入学年份', 'class_name': '测试班级', 'codeforces_handle': 'active'},
+            {'qq_id': 6, 'name': '空班级', 'class_name': '', 'codeforces_handle': 'active'},
         ]
         fetch = Mock(side_effect=lambda platform, provider, handle: {'accepted': 0, 'submitted': int(handle == 'active')})
         with patch.object(statistics.users, 'list_users', return_value=participants), \
              patch.object(statistics, 'fetch_statistics', fetch):
             records, ranking = statistics.collect_statistics()
-        self.assertEqual(set(records), {1})
+        self.assertEqual(set(records), {1, 5})
         self.assertEqual(ranking[0]['NAME'], '只有CF')
-        self.assertEqual(fetch.call_count, 2)
+        self.assertEqual(fetch.call_count, 3)
         with patch.object(statistics.users, 'list_users', return_value=participants[1:]), \
              patch.object(statistics, 'fetch_statistics', return_value={'accepted': 0, 'submitted': 0}):
             with self.assertRaisesRegex(ValueError, '今日有提交'):
