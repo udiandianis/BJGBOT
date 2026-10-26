@@ -146,7 +146,7 @@ def get_png(on_progress=None):
             for column, (completed, total) in enumerate(counts, start=1):
                 fraction = min(1, completed / max(1, total))
                 level = 0 if completed == 0 else 1 + sum(fraction >= threshold for threshold in (0.25, 0.5, 0.75, 1))
-                report[row_index, column].set_facecolor(('#ffffff', '#dcfce7', '#86efac', '#4ade80', '#15803d', '#14532d')[level])
+                report[row_index, column].set_facecolor(('#ffffff', '#86efac', '#4ade80', '#22c55e', '#15803d', '#14532d')[level])
                 report[row_index, column].set_text_props(color='white' if level >= 4 else '#111827')
     figure.tight_layout()
     REPORT_DIRECTORY.mkdir(parents=True, exist_ok=True)

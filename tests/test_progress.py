@@ -133,3 +133,4 @@ class QueryProgressTests(unittest.TestCase):
         report = axes.table.return_value
         self.assertIn(call('#14532d'), report.__getitem__.return_value.set_facecolor.call_args_list)
         self.assertIn(call('#ffffff'), report.__getitem__.return_value.set_facecolor.call_args_list)
+        self.assertIn(call('#86efac'), report.__getitem__.return_value.set_facecolor.call_args_list)
