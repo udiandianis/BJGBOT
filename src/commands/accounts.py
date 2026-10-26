@@ -29,7 +29,8 @@ def register(router, services, settings):
     router.register('account.bind', r'#bind\s+(name|class|chaoxing|codeforces|nowcoder|luogu|atcoder)\s+(.*)', bind,
                     '#bind name 姓名：绑定姓名\n例：#bind name 张三\n\n'
                     '#bind class 班级：绑定班级\n例：#bind class 测试班级2302\n\n'
-                    '#bind codeforces/nowcoder/luogu/atcoder 账号：绑定平台账号\n例：#bind codeforces zhangsan\n\n'
+                    '#bind codeforces/nowcoder/luogu/atcoder 账号：绑定平台账号\n例：#bind codeforces zhangsan\n'
+                    '注：洛谷需要实名认证，用户设置-安全设置-实人认证（https://www.luogu.com.cn/user/setting/security）\n\n'
                     '#bind chaoxing 账号 密码：绑定学习通，密码保存在本机数据库；请留意群内可见性\n例：#bind chaoxing zhangsan 123456')
     router.register('account.query', r'#(codeforces|nowcoder|luogu|atcoder)(?:\s+(.*))?', query,
                     '#codeforces/nowcoder/luogu/atcoder 账号：查询指定账号\n例：#codeforces zhangsan\n\n'
