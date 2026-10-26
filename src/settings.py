@@ -3,6 +3,7 @@ from datetime import time
 from dataclasses import dataclass, field
 from functools import lru_cache
 from .paths import CONFIG_PATH
+from .agent.config import AgentConfig
 
 CONFIG_LAYOUT = {
     'bot': {'qq': 'bot_qq', 'host': 'host', 'port': 'port', 'request_timeout': 'request_timeout'},
@@ -57,6 +58,7 @@ class Settings:
     r2_access_key_id: str = field(repr=False)
     r2_secret_access_key: str = field(repr=False)
     r2_url_expiry_seconds: int
+    agent: AgentConfig = field(default_factory=AgentConfig)
 
     @classmethod
     def load(cls):
@@ -65,6 +67,9 @@ class Settings:
         if not path.exists():
             raise ValueError('缺少 bot_settings.json，请在 config 目录填写项目配置')
         document = json.loads(path.read_text(encoding='utf-8-sig'))
+        if not isinstance(document, dict):
+            raise ValueError('bot_settings.json 必须是 JSON 对象')
+        agent = AgentConfig.load(document.pop('agent', {}))
         data = {}
 
         def read_section(section, layout, location):
@@ -113,4 +118,4 @@ class Settings:
                 raise ValueError
         except ValueError:
             raise ValueError('problemset_refresh_time 必须为 HH:MM 格式的有效时间') from None
-        return cls(**data)
+        return cls(**data, agent=agent)

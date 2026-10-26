@@ -4,11 +4,13 @@ from .settings import get_settings
 from .adapters.napcat import NapCatClient
 from .commands import build_router
 from .events import GroupMessage
+from .agent.bridge import AgentBridge
+from .router import Reply
 
 logger = logging.getLogger(__name__)
 
 
-def create_app(settings=None, client=None, services=None):
+def create_app(settings=None, client=None, services=None, agent=None):
     """组装 HTTP 应用、配置、服务和路由；参数可注入以便测试。"""
     settings = settings or get_settings()
     client = client or NapCatClient(settings)
@@ -16,8 +18,18 @@ def create_app(settings=None, client=None, services=None):
         from .services.container import BotServices
         services = BotServices(settings, client)
     router = build_router(services, settings)
+    agent = agent or AgentBridge(settings, client)
     app = Flask(__name__)
-    app.extensions.update(bot_router=router, bot_services=services, bot_settings=settings)
+    app.extensions.update(bot_router=router, bot_services=services, bot_settings=settings, bot_agent=agent)
+
+    @app.get('/agent/commands')
+    def agent_commands():
+        """向本机社区插件提供业务指令说明，不返回配置或凭据。"""
+        import hmac
+        expected = 'Bearer ' + settings.agent.token
+        if not settings.agent.enabled or not settings.agent.token or not hmac.compare_digest(request.headers.get('Authorization', ''), expected):
+            return jsonify(error='Unauthorized'), 401
+        return jsonify(ok=True, commands=router.help_text())
 
     @app.get('/health')
     def health():
@@ -45,7 +57,10 @@ def create_app(settings=None, client=None, services=None):
                     logger.exception('群欢迎消息发送失败')
             return jsonify({})
         event = GroupMessage.parse(data)
-        if event is None or event.user_id == settings.bot_qq:
+        if event is None:
+            agent.forward(data)
+            return jsonify({})
+        if event.user_id == settings.bot_qq:
             return jsonify({})
         def notify_progress(text):
             """先发送查询进度，提示发送失败时继续执行原命令。"""
@@ -54,13 +69,18 @@ def create_app(settings=None, client=None, services=None):
             except Exception:
                 logger.exception('查询进度提示发送失败')
         try:
-            reply = router.dispatch(event, notify_progress)
+            control = agent.control(event)
+            if control is not None:
+                reply = Reply(control)
+            else:
+                legacy = any(command.pattern.fullmatch(event.text) for command in router.commands)
+                reply = router.dispatch(event, notify_progress)
+                if not legacy:
+                    agent.forward(data)
         except ValueError as error:
-            from .router import Reply
             reply = Reply(str(error))
         except Exception:
             logger.exception('Command failed in group=%s user=%s', event.group_id, event.user_id)
-            from .router import Reply
             reply = Reply('处理失败，请稍后重试')
         if reply and reply.text:
             try:

@@ -1,0 +1,16 @@
+[Unit]
+Description=BJGBOT community Agent (DeepSeek Harness + Aurabot)
+After=network-online.target bjgbot-agent-gateway.service
+Wants=network-online.target bjgbot-agent-gateway.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/BJGBOT
+ExecStart=/opt/BJGBOT/.venv-linux/bin/python -B /opt/BJGBOT/scripts/run_agent.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

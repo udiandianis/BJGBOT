@@ -22,7 +22,7 @@ Windows 还需先安装 Python 3.10 或更高版本和 NapCat；Linux 脚本可�
 | `napcat.linux_qq_path` | Linux 已安装 NapCat 的 QQ 可执行文件路径，支持 `~` |
 | `bot.request_timeout` | NapCat、平台查询和 AI 请求超时，单位秒 |
 | `welcome.groups` / `welcome.message` | 欢迎消息生效的群号及纯文本；程序自动 @ 新成员，无需填写 CQ 码 |
-| `collections.admins` | 允许使用删除、清空指令的 QQ 号 |
+| `collections.admins` | 允许使用删除、清空指令的 QQ 号；首位同时作为社区 Agent 主人 |
 | `ai.chatgpt.base_url` / `ai.chatgpt.model` / `ai.chatgpt.api_key` | ChatGPT 服务地址、模型和密钥 |
 | `ai.deepseek.base_url` / `ai.deepseek.model` / `ai.deepseek.api_key` | DeepSeek 服务地址、模型和密钥 |
 | `platforms.luogu.cookies` | 洛谷查询所用 Cookies |
@@ -33,6 +33,8 @@ Windows 还需先安装 Python 3.10 或更高版本和 NapCat；Linux 脚本可�
 数据流：QQ → NapCat HTTP 上报 → `app.py` → 消息解析 → 命令路由 → 业务服务 → NapCat HTTP API → QQ。5010 用于接收事件，5020 用于调用 QQ 操作，两者分别属于 Python 和 NapCat。
 
 ## 代码结构
+
+大肥鱼接入、远端部署和社区功能说明见 [社区 Agent 说明](resources/agent/README.md)。原有业务指令仍优先由 BJGBOT 处理。
 
 ```text
 scripts/                 Windows 和 Linux 启动脚本

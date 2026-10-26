@@ -1,0 +1,14 @@
+[Unit]
+Description=BJGBOT community Agent NapCat relay
+After=network-online.target napcat.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/BJGBOT
+ExecStart=/opt/BJGBOT/.venv-linux/bin/python -B /opt/BJGBOT/scripts/run_agent.py gateway
+Restart=on-failure
+RestartSec=3
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
