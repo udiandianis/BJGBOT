@@ -43,6 +43,5 @@ class Router:
         return None
 
     def help_text(self):
-        """汇总注册命令的说明，生成与路由一致的帮助文本。"""
-        return '\n\n'.join(line.strip() for command in self.commands
-                           for line in command.help.splitlines() if line.strip())
+        """汇总帮助段落，保留同一指令内说明与示例的换行。"""
+        return '\n\n'.join(command.help.strip() for command in self.commands if command.help.strip())

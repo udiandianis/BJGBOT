@@ -16,8 +16,8 @@ def register(router, services, settings):
 
     router.register('duel', r'#duel(?:\s+(.*))?',
                     lambda event, match: duel(event, match) if match[1] is not None else '用法：#duel @某人 分数 或 #duel accept/reject/judge/reset',
-                    '#duel @某人 分数：双方须绑定CF，分数为800-3500整百数\n'
-                    '#duel accept：被挑战者在邀请群接受单挑\n'
-                    '#duel reject：被挑战者在邀请群拒绝单挑\n'
-                    '#duel judge：在单挑群结算；无人完成也结束单挑，双方积分不变\n'
-                    '#duel reset：取消自己参与的邀请或单挑，恢复参与状态，双方积分不变')
+                    '#duel @某人 分数：双方须绑定CF，分数为800-3500整百数\n例：#duel @张三 1200\n\n'
+                    '#duel accept：被挑战者在邀请群接受单挑\n例：#duel accept\n\n'
+                    '#duel reject：被挑战者在邀请群拒绝单挑\n例：#duel reject\n\n'
+                    '#duel judge：在单挑群结算；无人完成也结束单挑，双方积分不变\n例：#duel judge\n\n'
+                    '#duel reset：取消自己参与的邀请或单挑，恢复参与状态，双方积分不变\n例：#duel reset')
