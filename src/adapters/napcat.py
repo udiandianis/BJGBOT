@@ -1,4 +1,7 @@
 import requests
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from urllib.parse import urlsplit
 from ..events import segments
 
 
@@ -28,28 +31,34 @@ class NapCatClient:
         """向指定群发送消息，返回 NapCat 接口结果。"""
         if isinstance(message, str) and '[CQ:' in message:
             message = segments(message)
-        if isinstance(message, list):
-            message = [dict(part, data=dict(part['data'])) for part in message]
-            for part in message:
-                if part['type'] not in ('image', 'video', 'record', 'file'):
-                    continue
-                data = part['data']
-                location = data.get('url') or data.get('file', '')
-                if not location.startswith(('https://', 'http://')):
-                    continue
-                data['file'] = self.download_file(location)
-                data.pop('url', None)
-        return self.call('send_group_msg', group_id=group_id, message=message)
+        with TemporaryDirectory(prefix='bjgbot-send-') as directory:
+            if isinstance(message, list):
+                message = [dict(part, data=dict(part['data'])) for part in message]
+                for index, part in enumerate(message):
+                    if part['type'] not in ('image', 'video', 'record', 'file'):
+                        continue
+                    data = part['data']
+                    location = data.get('url') or data.get('file', '')
+                    if not location.startswith(('https://', 'http://')):
+                        continue
+                    suffix = Path(urlsplit(location).path).suffix
+                    path = Path(directory) / (str(index) + suffix)
+                    self.download_file(location, path)
+                    data['file'] = str(path)
+                    data.pop('url', None)
+            return self.call('send_group_msg', group_id=group_id, message=message)
 
-    def download_file(self, url):
-        """通过独立下载接口取得 NapCat 本机路径，网络异常最多重试两次。"""
+    def download_file(self, url, path):
+        """流式下载到本次发送的临时文件，网络异常最多重试两次。"""
         for attempt in range(3):
             try:
-                result = self.call('download_file', url=url, thread_count=1)
-                if not result or not result.get('file'):
-                    raise NapCatError('下载接口未返回文件路径')
-                return result['file']
-            except (requests.RequestException, NapCatError):
+                with requests.get(url, stream=True, timeout=self.settings.request_timeout) as response:
+                    response.raise_for_status()
+                    with path.open('wb') as output:
+                        for chunk in response.iter_content(1024 * 1024):
+                            output.write(chunk)
+                return
+            except requests.RequestException:
                 if attempt == 2:
                     raise
 
