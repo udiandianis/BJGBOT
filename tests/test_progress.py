@@ -133,4 +133,5 @@ class QueryProgressTests(unittest.TestCase):
         self.assertEqual(row[1:6], ['4/4', '3/4', '1/4', '2/4', '0/4'])
         self.assertEqual(row[-1], '10/72')
         self.assertEqual(len({cells[1, column].set_facecolor.call_args.args[0] for column in range(1, 6)}), 5)
-        cells[1, 5].set_facecolor.assert_called_once_with('#ffffff')
+        cells[1, 5].set_facecolor.assert_called_once_with((1, 1, 1))
+        cells[1, 1].set_facecolor.assert_called_once_with((0, 1, 0))
