@@ -29,10 +29,10 @@ def register(router, services, settings):
     router.register('account.bind', r'#bind\s+(name|class|chaoxing|codeforces|nowcoder|luogu|atcoder)\s+(.*)', bind,
                     '#bind name 姓名：绑定姓名\n例：#bind name 张三\n\n'
                     '#bind class 班级：绑定班级\n例：#bind class 测试班级2302\n\n'
-                    '#bind codeforces/nowcoder/luogu/atcoder 账号：绑定平台账号\n例：#bind codeforces tourist\n\n'
-                    '#bind chaoxing 账号 密码：绑定学习通，密码保存在本机数据库；请留意群内可见性\n例：#bind chaoxing demo_user demo_password')
+                    '#bind codeforces/nowcoder/luogu/atcoder 账号：绑定平台账号\n例：#bind codeforces zhangsan\n\n'
+                    '#bind chaoxing 账号 密码：绑定学习通，密码保存在本机数据库；请留意群内可见性\n例：#bind chaoxing zhangsan 123456')
     router.register('account.query', r'#(codeforces|nowcoder|luogu|atcoder)(?:\s+(.*))?', query,
-                    '#codeforces/nowcoder/luogu/atcoder 账号：查询指定账号\n例：#codeforces tourist\n\n'
+                    '#codeforces/nowcoder/luogu/atcoder 账号：查询指定账号\n例：#codeforces zhangsan\n\n'
                     '#平台名 @用户：查询该用户；不带账号或提及则查询自己\n例：#codeforces @张三；查询自己：#codeforces')
     router.register('account.mentioned', r'(codeforces|nowcoder|luogu|atcoder)',
                     lambda event, match: services.query_bound(event.mentions[0], BINDING_FIELDS[match[1].lower()]),
