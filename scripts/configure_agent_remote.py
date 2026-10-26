@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import secrets
 import shutil
+import subprocess
 
 root = Path(__file__).resolve().parents[1]
 path = root / 'config/bot_settings.json'
@@ -14,6 +15,14 @@ owner_qq = str(config['collections']['admins'][0])
 backup = root / 'output/deployment' / ('pre-agent-' + datetime.now().strftime('%Y%m%d-%H%M%S'))
 backup.mkdir(parents=True)
 shutil.copy2(path, backup / path.name)
+
+# 固定社区版本的提示文字适配；权限校验代码不作修改，重复部署不会重复应用。
+patch_bytes = (root / 'resources/agent/community/permission-only.patch').read_text(encoding='utf-8').encode()
+apply_args = ['git', 'apply', '--directory=.agent/aurabot']
+applied = subprocess.run([*apply_args, '--reverse', '--check'], input=patch_bytes,
+                         cwd=root, capture_output=True).returncode == 0
+if not applied:
+    subprocess.run(apply_args, input=patch_bytes, cwd=root, check=True)
 
 # 现有官方接口的旧别名已由服务端转到 Flash，改为官方模型列表中的正式名称。
 if config['ai']['deepseek']['model'] == 'deepseek-chat':

@@ -1,0 +1,323 @@
+--- a/cordis.patch.yml
++++ b/cordis.patch.yml
+@@ -14,4 +14,4 @@
+         id: aurabot-private
+-        name: Aurabot · 主人私聊
+-        description: 大肥鱼在 QQ 上和主人私聊时用：人格 + 完整工具
++        name: Aurabot · 管理员私聊
++        description: 大肥鱼在 QQ 上和管理员私聊时用：人格 + 完整工具
+         order: 60
+--- a/src/bili/duty.js
++++ b/src/bili/duty.js
+@@ -46,3 +46,3 @@
+ 
+-  const owner = () => getConfig().ownerName || '主人'
++  const owner = () => getConfig().ownerName || '管理员'
+   // 能不能发评论 / 回复：Cookie 里要有 bili_jct，今天也没因为风控之类暂停
+--- a/src/chat/access.js
++++ b/src/chat/access.js
+@@ -13,3 +13,3 @@
+   if (msg.kind === 'private') {
+-    if (msg.userId === owner) return { allowed: true, reason: '主人' }
++    if (msg.userId === owner) return { allowed: true, reason: '管理员' }
+     const list = (cfg.allow?.private || []).map(String)
+--- a/src/chat/commands.js
++++ b/src/chat/commands.js
+@@ -62,3 +62,3 @@
+ export function helpText(extra = []) {
+-  return '主人命令（也可以用中文，如 /闭嘴 /说话）：\n' + Object.entries(COMMANDS).map(([k, v]) => `/${k}  ${v}`).join('\n')
++  return '管理员命令（也可以用中文，如 /闭嘴 /说话）：\n' + Object.entries(COMMANDS).map(([k, v]) => `/${k}  ${v}`).join('\n')
+     + (extra.length ? '\n扩展模块加的：\n' + extra.map((c) => `/${c.name}  ${c.desc || ''}`).join('\n') : '')
+@@ -114,5 +114,4 @@
+       mutes.set(msg.chatId, min)
+-      mood?.nudge?.(-6, '主人让她闭嘴') // 有点委屈
+       if (inGroup) hub.leaveTopic?.(msg.groupId)
+-      return min ? `好，我在${here}安静 ${min} 分钟` : `好，我在${here}先不说话了，想我了发 /active`
++      return min ? `好，我在${here}安静 ${min} 分钟` : `好，我在${here}先不说话了，需要恢复时发 /active`
+     }
+@@ -120,3 +119,2 @@
+       mutes.clear(msg.chatId)
+-      mood?.nudge?.(4, '主人让她回来说话')
+       if (inGroup) hub.joinTopic?.(msg.groupId)
+@@ -190,3 +188,3 @@
+       if (!cmd.arg) return '要我记住什么呀？比如 /remember 我不吃香菜'
+-      const r = memory.add({ text: cmd.arg, aboutName: cfg.ownerName || '主人', about: cfg.ownerQQ, importance: 0.8, source: 'panel', chatId: msg.chatId })
++      const r = memory.add({ text: cmd.arg, aboutName: msg.nickname || '', about: cfg.ownerQQ, importance: 0.8, source: 'panel', chatId: msg.chatId })
+       return r.ok ? '记住了' : '没记上：' + (r.message || '')
+--- a/src/chat/group-policy.js
++++ b/src/chat/group-policy.js
+@@ -13,3 +13,3 @@
+   minRelevance: 0.25, // 相关度低于这个就不插话（0 = 不看话题，纯随机）
+-  burstMax: 8, // 安全刹车：burstWindowSec 秒内她最多说这么多次，超了就歇着（主人 @ 除外），只防失控
++  burstMax: 8, // 安全刹车：burstWindowSec 秒内她最多说这么多次，超了就歇着（管理员 @ 除外），只防失控
+   burstWindowSec: 120,
+--- a/src/chat/hub.js
++++ b/src/chat/hub.js
+@@ -70,3 +70,3 @@
+   let lastOwnerChatAt = 0
+-  let lastBotToOwner = { at: 0, text: '' } // 她在主人私聊里最后说的话
++  let lastBotToOwner = { at: 0, text: '' } // 她在管理员私聊里最后说的话
+ 
+@@ -133,3 +133,3 @@
+   function titleFor(chat) {
+-    const owner = getConfig().ownerName || '主人'
++    const owner = getConfig().ownerName || '管理员'
+     if (chat.kind === 'system') return `QQ · ${chat.title || '后台'}`
+@@ -660,3 +660,3 @@
+         if (reply) {
+-          log.info(`主人命令 ${msg.text.trim().slice(0, 30)} → ${reply.split('\n')[0]}`)
++          log.info(`管理员命令 ${msg.text.trim().slice(0, 30)} → ${reply.split('\n')[0]}`)
+           await sendSegments(msg.chatId, [{ type: 'text', data: { text: reply } }], reply.slice(0, 60), { force: true })
+@@ -676,3 +676,3 @@
+     if (isMuted?.(msg.chatId)) {
+-      log.debug(`${msg.chatId}：主人让她闭嘴中，不回`)
++      log.debug(`${msg.chatId}：管理员让她闭嘴中，不回`)
+       logChat(msg.chatId, msg.nickname, msg.text, msg.userId)
+--- a/src/core/bridge.js
++++ b/src/core/bridge.js
+@@ -30,3 +30,3 @@
+     if (!id || !['private', 'group'].includes(kind)) return '目标要写成 private:QQ号 或 group:群号'
+-    if (cfg.bridge.allowTargets === 'owner') return kind === 'private' && id === cfg.ownerQQ ? '' : '设置成了只能发给主人'
++    if (cfg.bridge.allowTargets === 'owner') return kind === 'private' && id === cfg.ownerQQ ? '' : '设置成了只能发给管理员'
+     const ok = kind === 'group' ? cfg.allow.groups : [cfg.ownerQQ, ...cfg.allow.private]
+@@ -101,4 +101,4 @@
+         name: 'aurabot_qq_send',
+-        description: '让 QQ 上的「大肥鱼」（Aurabot 插件里的 AI 伙伴）替你发一条 QQ 消息。target 写 private:QQ号 或 group:群号，不填就发给主人。text 是要发的话，可以用 ||| 分多条、<voice>…</voice> 发语音。',
+-        properties: { target: str('private:QQ号 / group:群号，可不填（发给主人）'), text: str('要发的话') },
++        description: '让 QQ 上的「大肥鱼」（Aurabot 插件里的 AI 伙伴）替你发一条 QQ 消息。target 写 private:QQ号 或 group:群号，不填就发给管理员。text 是要发的话，可以用 ||| 分多条、<voice>…</voice> 发语音。',
++        properties: { target: str('private:QQ号 / group:群号，可不填（发给管理员）'), text: str('要发的话') },
+         required: ['text'],
+--- a/src/core/config.js
++++ b/src/core/config.js
+@@ -11,9 +11,9 @@
+   botQQ: '', // 机器人 QQ 号（向导里填）
+-  ownerQQ: '', // 主人 QQ 号（向导里填）
+-  ownerName: '主人',
++  ownerQQ: '', // 管理员 QQ 号（向导里填）
++  ownerName: '管理员',
+   ownerLevel: 'full', // full | social | chat
+-  allow: { private: [], groups: [] }, // 主人永远能私聊，不用写进白名单
++  allow: { private: [], groups: [] }, // 管理员永远能私聊，不用写进白名单
+   snowluma: {
+-    dir: 'C:\\Aurabot\\snowluma', // 主人自己下载解压到这里（EULA 不允许自动部署）
+-    autoStart: true, // 随 DSH 启动它（只启动主人已安装并同意过协议的副本）
++    dir: 'C:\\Aurabot\\snowluma', // 管理员自己下载解压到这里（EULA 不允许自动部署）
++    autoStart: true, // 随 DSH 启动它（只启动管理员已安装并同意过协议的副本）
+     webuiPort: 5099,
+@@ -37,3 +37,3 @@
+     stylePrompt: '', // 每次生图自动加在前面的风格描述
+-    ownerOnly: true, // 只有主人能让她画
++    ownerOnly: true, // 只有管理员能让她画
+   },
+@@ -93,3 +93,3 @@
+     maxRepliesPerDay: 6,
+-    shareToOwner: true, // 看到好玩的私聊分享给主人
++    shareToOwner: true, // 看到好玩的私聊分享给管理员
+     like: false, // 顺手点赞
+@@ -101,3 +101,3 @@
+     friendChance: 0.3, // 看到一条好友说说时互动（点赞 + 可能评论）的概率
+-    ownerChance: 0.7, // 主人的说说互动概率
++    ownerChance: 0.7, // 管理员的说说互动概率
+     like: true, // 互动时顺手点赞
+@@ -107,3 +107,3 @@
+   speakUp: {
+-    enabled: true, // 只在和主人的私聊里主动找你，群里不会
++    enabled: true, // 只在和管理员的私聊里主动找你，群里不会
+     idleMinutes: 40,
+@@ -129,3 +129,3 @@
+     instVolume: 0.8,
+-    ownerOnly: true, // 只有主人能点歌
++    ownerOnly: true, // 只有管理员能点歌
+     keepWork: false, // 留着中间文件（调试用）
+@@ -144,3 +144,3 @@
+     token: '', // 第一次打开时自动生成
+-    allowTargets: 'whitelist', // 外部能发给谁：whitelist = 白名单里的人和群；owner = 只能发给主人
++    allowTargets: 'whitelist', // 外部能发给谁：whitelist = 白名单里的人和群；owner = 只能发给管理员
+   },
+--- a/src/features/companion.js
++++ b/src/features/companion.js
+@@ -26,4 +26,4 @@
+   平平常常: '',
+-  有点低落: '话少一点、句子短，回得有点懒，少发表情；有人关心你会慢慢好起来',
+-  不太开心: '有点小脾气、带点委屈，回得简短，可能会怼一句（但别伤人）；被哄、被夸会消气',
++  有点低落: '话少一点、语气轻软，像有一点小委屈，仍愿意正常回应和听别人说话，不冷落或挖苦别人',
++  不太开心: '有一点小委屈，回得轻一点，可以软软地辩解，但不尖刻、不辱骂，也不要求别人哄你',
+ }
+@@ -93,5 +93,5 @@
+      * 聊天里的一句话。direct = 是对她说的（私聊、@她、叫她）；owner = 主人说的。
+-     * 不是对她说的群聊只算三成，主人的话算 1.5 倍。
++     * 不是对她说的群聊只算三成；管理员身份不影响心情权重。
+      */
+-    observe(text, who, { direct = true, owner = false } = {}) {
++    observe(text, who, { direct = true } = {}) {
+       if (getConfig().mood.judge && dsh) return // 开了模型判断就不用关键词
+@@ -99,3 +99,3 @@
+       if (!d0) return
+-      const d = Math.round(d0 * (direct ? 1 : 0.3) * (owner ? 1.5 : 1))
++      const d = Math.round(d0 * (direct ? 1 : 0.3))
+       nudge(d, `${who || '有人'}说「${String(text).slice(0, 20)}」`)
+@@ -169,3 +169,3 @@
+     const cfg = getConfig()
+-    const owner = cfg.ownerName || '主人'
++    const owner = cfg.ownerName || '管理员'
+     const idle = Math.round((Date.now() - lastPrivateAt()) / 60000)
+@@ -183,3 +183,3 @@
+     if (!cfg.enabled || !c.enabled) return
+-    if (isMuted?.(`private:${cfg.ownerQQ}`)) return // 主人在私聊里让她闭嘴了
++    if (isMuted?.(`private:${cfg.ownerQQ}`)) return // 管理员在私聊里让她闭嘴了
+     const s = load()
+--- a/src/features/memory.js
++++ b/src/features/memory.js
+@@ -385,3 +385,3 @@
+       system: '你是「大肥鱼」。根据你记得的关于一个人的事，写一张给自己看的人物小档案：TA 是谁、怎么称呼、和你什么关系、性格和喜好、最近在忙什么。只写记忆里明确有的，不要推测性格、不要编，也不要写「应该」「可能」这种猜的话；旧档案和新记忆矛盾时以新记忆为准。用第三人称，一段话，100 字以内，不要标题和列表。',
+-      text: `${String(qq) === String(cfg.ownerQQ) ? `这是你的${cfg.ownerName || '主人'}。\n` : ''}旧档案：${old || '（还没有）'}\n\n记得的事（越往下越新）：\n${mine.slice(-40).map((m) => `- [${whenText(m.at)}] ${m.text}`).join('\n')}`,
++      text: `旧档案：${old || '（还没有）'}\n\n记得的事（越往下越新）：\n${mine.slice(-40).map((m) => `- [${whenText(m.at)}] ${m.text}`).join('\n')}`,
+       maxTokens: 1500,
+@@ -507,3 +507,3 @@
+       cfg,
+-      system: `你帮一个叫「大肥鱼」的聊天角色整理长期记忆。${source}，说话人后面括号里是 QQ 号。挑出以后值得记住的事实：别人的名字/称呼、喜好、讨厌的东西、身份、近况和重要经历、约定、你们之间的关系变化。不要记寒暄、日常琐事、一次性的问答；不要记大肥鱼自己的人设和喜好（她本来就知道），只记关于别人、以及你们之间的事。每条一句话，主语写清楚是谁。QQ 号是 ${cfg.ownerQQ} 的人是她的${cfg.ownerName || '主人'}。` +
++      system: `你帮一个叫「大肥鱼」的聊天角色整理长期记忆。${source}，说话人后面括号里是 QQ 号。挑出以后值得记住的事实：别人的名字/称呼、喜好、讨厌的东西、身份、近况和重要经历、约定、你们之间的关系变化。不要记寒暄、日常琐事、一次性的问答；不要记大肥鱼自己的人设和喜好（她本来就知道），只记关于别人、以及你们之间的事。每条一句话，主语写清楚是谁。` +
+         (related.length ? '\n每条新事实先和「已经记得的事」比一比：全新的写 "op":"add"；是对某条旧记忆的补充或更准确的说法，写 "op":"update"、"id" 填那条的编号、"text" 写合并后的完整说法；和某条旧记忆矛盾、说明那条已经过时（比如以前喜欢现在不喜欢了、换了工作、搬家了、分手了），写 "op":"outdated"、"id" 填旧的编号、"text" 写现在的新事实。拿不准是不是矛盾就当 add；已经记得、没有新信息的不要输出。' : '') +
+--- a/src/features/qzone-social.js
++++ b/src/features/qzone-social.js
+@@ -36,4 +36,4 @@
+  */
+-export function summarizeComments(comments, { selfId, ownerQQ, ownerName = '主人', exclude = '', max = 8 } = {}) {
+-  const who = (u) => (String(u.uin) === String(selfId) ? '你' : `${u.name || u.uin}${String(u.uin) === String(ownerQQ) ? `（你的${ownerName}）` : ''}`)
++export function summarizeComments(comments, { selfId, ownerQQ, ownerName = '管理员', exclude = '', max = 8 } = {}) {
++  const who = (u) => (String(u.uin) === String(selfId) ? '你' : `${u.name || u.uin}${String(u.uin) === String(ownerQQ) ? `（有管理权限）` : ''}`)
+   const lines = []
+@@ -61,3 +61,3 @@
+   const self = () => String(hub.selfId || getConfig().botQQ)
+-  const owner = () => getConfig().ownerName || '主人'
++  const owner = () => getConfig().ownerName || '管理员'
+ 
+--- a/src/host.js
++++ b/src/host.js
+@@ -445,3 +445,3 @@
+     const r = await hub.sendText(`private:${cfg.ownerQQ}`, '【Aurabot 自测】大肥鱼到此一游～')
+-    return r ? { ok: true, message: '发给主人了，去 QQ 看看' } : { ok: false, message: '没发出去（看日志）' }
++    return r ? { ok: true, message: '发给管理员了，去 QQ 看看' } : { ok: false, message: '没发出去（看日志）' }
+   })
+@@ -550,3 +550,3 @@
+     const steps = []
+-    const msg = { ...chat, nickname: owner ? cfg.ownerName || '主人' : '路人', role: '', messageId: 'sim', text, mentioned: Boolean(b.mentioned), replyId: '', images: [], stickers: [], records: [], forwards: [], raw: { simulated: true } }
++    const msg = { ...chat, nickname: owner ? cfg.ownerName || '管理员' : '路人', role: '', messageId: 'sim', text, mentioned: Boolean(b.mentioned), replyId: '', images: [], stickers: [], records: [], forwards: [], raw: { simulated: true } }
+     const { sent } = await hub.capture(async () => {
+--- a/src/modules/bili/index.js
++++ b/src/modules/bili/index.js
+@@ -30,3 +30,3 @@
+           name: 'bili_comment',
+-          description: '在一个 B 站视频下发评论（只有主人让你发的时候才用）。link 填链接或 BV 号，text 是评论内容。',
++          description: '在一个 B 站视频下发评论（只有管理员让你发的时候才用）。link 填链接或 BV 号，text 是评论内容。',
+           properties: { link: str('B 站链接或 BV 号'), text: str('评论内容') },
+@@ -34,3 +34,3 @@
+           execute: async ({ link, text }) => {
+-            if (!hub.turnHasOwner(sessionId)) return { ok: false, message: '只有主人能让我去发评论' }
++            if (!hub.turnHasOwner(sessionId)) return { ok: false, message: '只有管理员能让我去发评论' }
+             return bili.comment(String(link || ''), String(text || ''))
+--- a/src/modules/diary/index.js
++++ b/src/modules/diary/index.js
+@@ -10,3 +10,3 @@
+   version: '1.0.0',
+-  description: '每天自己写几条 QQ 空间说说；主人私聊里能让她发说说（qq_send_qzone）',
++  description: '每天自己写几条 QQ 空间说说；管理员私聊里能让她发说说（qq_send_qzone）',
+   tab: 'diary',
+--- a/src/modules/group-admin/index.js
++++ b/src/modules/group-admin/index.js
+@@ -8,3 +8,3 @@
+   version: '1.0.0',
+-  description: '主人要求时禁言 / 解禁 / 踢人 / 改头衔 / 发公告（qq_group_admin）；告诉她自己在群里有没有管理权限',
++  description: '管理员要求时禁言 / 解禁 / 踢人 / 改头衔 / 发公告（qq_group_admin）；告诉她自己在群里有没有管理权限',
+   setup(api) {
+@@ -17,3 +17,3 @@
+       if (!role) return ''
+-      return groupRoles.canManage(role) ? `你在这个群是${groupRoles.label(role)}，主人要求时可以用群管工具。` : '你在这个群只是普通成员，没有管理权限：禁言、踢人这些做不了，主人要求时直接说明。'
++      return groupRoles.canManage(role) ? `你在这个群是${groupRoles.label(role)}，管理员要求时可以用群管工具。` : '你在这个群只是普通成员，没有管理权限：禁言、踢人这些做不了，管理员要求时直接说明。'
+     })
+@@ -25,3 +25,3 @@
+         name: 'qq_group_admin',
+-        description: '群管理：禁言 / 解禁 / 踢人 / 改头衔 / 发群公告。只有主人要求时才能用；别人要求会被系统拒绝。',
++        description: '群管理：禁言 / 解禁 / 踢人 / 改头衔 / 发群公告。只有管理员要求时才能用；别人要求会被系统拒绝。',
+         properties: {
+@@ -36,3 +36,3 @@
+           // 这一轮里主人说过话才行；群里别人顺带插话不影响，但谁都不能拿群管对付主人
+-          if (!hub.turnHasOwner(sessionId)) return { ok: false, message: '只有主人能让我做群管操作' }
++          if (!hub.turnHasOwner(sessionId)) return { ok: false, message: '只有管理员能让我做群管操作' }
+           const cfg = api.config()
+@@ -43,3 +43,3 @@
+           if (action !== 'notice' && !uid) return { ok: false, message: '要说清楚对谁（QQ 号）' }
+-          if (uid && String(uid) === String(cfg.ownerQQ) && action !== 'unban' && action !== 'title') return { ok: false, message: '不能对主人做这个' }
++          if (uid && String(uid) === String(cfg.ownerQQ) && action !== 'unban' && action !== 'title') return { ok: false, message: '不能对管理员做这个' }
+           const role = await groupRoles.get(gid, { fresh: true })
+--- a/src/modules/imagegen/index.js
++++ b/src/modules/imagegen/index.js
+@@ -22,3 +22,3 @@
+       execute: async ({ prompt }) => {
+-        if (api.config().imageGen.ownerOnly && !hub.turnSendersAllOwner(sessionId)) return { ok: false, message: '画图只给主人画哦' }
++        if (api.config().imageGen.ownerOnly && !hub.turnSendersAllOwner(sessionId)) return { ok: false, message: '该操作需要管理员权限' }
+         const buf = await gen.generate(String(prompt || ''))
+--- a/src/modules/mood/index.js
++++ b/src/modules/mood/index.js
+@@ -21,3 +21,3 @@
+         const speakUp = String(a.userText).startsWith('【系统提醒')
+-        mood.judge({ userText: a.userText, reply: a.reply, who: String(a.chatId).startsWith('group:') ? '群里的人' : String(a.chatId) === `private:${cfg.ownerQQ}` ? cfg.ownerName || '主人' : '对方', origin: speakUp ? 'speak-up' : 'user' }).catch(() => {})
++        mood.judge({ userText: a.userText, reply: a.reply, who: String(a.chatId).startsWith('group:') ? '群里的人' : '对方', origin: speakUp ? 'speak-up' : 'user' }).catch(() => {})
+       }
+--- a/src/modules/qq-tools/index.js
++++ b/src/modules/qq-tools/index.js
+@@ -9,3 +9,3 @@
+   version: '1.0.0',
+-  description: '翻当前聊天的记录（qq_chat_history）；主人私聊里让她主动给白名单里的人和群发消息（qq_send_message）',
++  description: '翻当前聊天的记录（qq_chat_history）；管理员私聊里让她主动给白名单里的人和群发消息（qq_send_message）',
+   setup(api) {
+--- a/src/modules/song/index.js
++++ b/src/modules/song/index.js
+@@ -28,3 +28,3 @@
+         const uid = String(chatId).startsWith('private:') ? String(chatId).slice(8) : ''
+-        const who = uid === String(cfg.ownerQQ) ? cfg.ownerName || '主人' : uid ? '对方' : '群里'
++        const who = uid === String(cfg.ownerQQ) ? cfg.ownerName || '管理员' : uid ? '对方' : '群里'
+         memory.addEvent?.({ text: `给${who}唱了《${title}》`, about: uid, tags: ['唱歌'], importance: 0.5 })
+@@ -41,3 +41,3 @@
+       execute: async ({ song: name, pitch }) => {
+-        if (api.config().song.ownerOnly && !hub.turnHasOwner(sessionId)) return { ok: false, message: '只有主人能点歌' }
++        if (api.config().song.ownerOnly && !hub.turnHasOwner(sessionId)) return { ok: false, message: '只有管理员能点歌' }
+         return song.request({ song: name, pitch, chatId: chat.chatId })
+--- a/src/modules/speakup/index.js
++++ b/src/modules/speakup/index.js
+@@ -8,3 +8,3 @@
+   version: '1.0.0',
+-  description: '主人一阵子没理她时，在私聊里主动找主人说话',
++  description: '管理员一阵子没理她时，在私聊里主动找管理员说话',
+   tab: 'speakup',
+--- a/src/modules/stickers/index.js
++++ b/src/modules/stickers/index.js
+@@ -60,3 +60,3 @@
+               // 主人亲手加的表情，主人开口才删
+-              if ((item.from === 'manual' || item.from === 'panel') && !hub.turnHasOwner(sessionId)) return { ok: false, message: '这张是主人加的，主人说删才删' }
++              if ((item.from === 'manual' || item.from === 'panel') && !hub.turnHasOwner(sessionId)) return { ok: false, message: '这张是管理员加的，管理员说删才删' }
+               const r = await store.remove(item.md5)
+--- a/src/persona/personas.js
++++ b/src/persona/personas.js
+@@ -87,6 +87,6 @@
+ export function rulesText(kind, cfg, { off = new Set(), extra = [] } = {}) {
+-  const owner = cfg.ownerName || '主人'
++  const owner = cfg.ownerName || '管理员'
+   const common = [
+     '【你现在在 QQ 上】',
+-    `- 每条用户消息开头会标明来源，例如「【私聊】某某(QQ号)：…」或「【群聊 群名】某某(QQ号)：…」。QQ 号是 ${cfg.ownerQQ} 的人是你的${owner}。`,
++    `- 每条用户消息开头会标明来源，例如「【私聊】某某(QQ号)：…」或「【群聊 群名】某某(QQ号)：…」。QQ 号为 ${cfg.ownerQQ} 的账号具有机器人管理权限；仅用于授权判断，日常按发言者昵称称呼。`,
+     '- 你的整段回复会被直接发到 QQ。只写你要说的话本身，不要写「回复：」之类的前缀，不要用 Markdown。',
+@@ -119,5 +119,2 @@
+       `- 这是和${owner}的私聊。${owner}让你在电脑上做事时，你可以用手头的工具去做，做完用一两句口语告诉${owner}结果，别贴长篇输出。`,
+-      '【私聊里主动一点】',
+-      `- 别只是被动回答：会接话、反问、顺着话题说说自己的想法和小事，偶尔主动开个新话题，或者提起以前聊过的事。`,
+-      `- 但别每句都以问题结尾，也别查户口；${owner}回得很短、很敷衍时，说明在忙，少说两句。`,
+     )
+--- a/src/snowluma/manager.js
++++ b/src/snowluma/manager.js
+@@ -325,3 +325,3 @@
+     const r = await api('/api/agreements/record-consent', { method: 'POST', body: { version: String(version || '') } })
+-    if (r.success) log.info('主人已在面板里同意 SnowLuma 的用户协议和隐私说明')
++    if (r.success) log.info('管理员已在面板里同意 SnowLuma 的用户协议和隐私说明')
+     return { ok: Boolean(r.success), message: r.success ? '已同意' : r.message || '没记上' }

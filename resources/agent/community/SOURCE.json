@@ -2,5 +2,6 @@
   "repository": "https://github.com/accomplish07zrh-eng/dsh-aurabot-qq",
   "commit": "062f3653df7091344756168078f28ea87934d9c0",
   "persona": "personas/dafeiyu.md",
-  "license": "MIT"
+  "license": "MIT",
+  "local_patch": "permission-only.patch"
 }

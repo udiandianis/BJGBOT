@@ -1,2 +1,4 @@
 * text=auto eol=lf
 *.bat text eol=crlf
+# 补丁的空白上下文行需要保留 diff 前缀空格。
+resources/agent/community/*.patch text eol=lf -whitespace

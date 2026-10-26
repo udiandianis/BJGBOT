@@ -42,13 +42,6 @@ export default {
     api.every(60_000, loadCommands, '同步 BJGBOT 指令说明')
     api.rule(() => commands ? '你所在的 QQ 机器人还提供以下 BJGBOT 业务指令，你可以记住这些功能，按需要告诉群友如何使用：\n' + commands : '')
 
-    // 权限身份不作为称呼；其余社区权限规则保持原文。
-    api.on('rules', (text) => {
-      const config = api.config()
-      return text.replace(`QQ 号是 ${config.ownerQQ} 的人是你的${config.ownerName || '主人'}。`,
-        `QQ 号为 ${config.ownerQQ} 的账号具有机器人管理权限；日常按发言者昵称称呼，不另设称谓。`)
-    })
-
     api.route('/control', async (req) => {
       if (!check(req)) return denied
       const body = await api.core.http.body(req)
