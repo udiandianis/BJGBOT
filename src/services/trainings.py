@@ -129,7 +129,6 @@ def get_png(on_progress=None):
     configure_matplotlib()
     figure, axes = pyplot.subplots(figsize=(20, max(2.5, len(rows) * 0.5)))
     axes.axis('off')
-    axes.set_title('已完成/总题数 · 颜色越深，完成比例越高', fontsize=14, pad=12)
     columns = list(rows[0])
     report = axes.table(cellText=[[row[column] for column in columns] for row in rows],
                         colLabels=columns, loc='center', cellLoc='center',
