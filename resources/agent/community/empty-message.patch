@@ -1,0 +1,12 @@
+--- a/src/chat/hub.js
++++ b/src/chat/hub.js
+@@ -775,3 +775,3 @@
+           const m = parseMessageEvent({ message_type: 'private', user_id: node.sender?.user_id ?? node.user_id, message: node.message ?? node.content ?? [] }, selfId)
+-          lines.push(`  ${who}：${(m.text || '（图片/表情）').slice(0, 120)}`)
++          lines.push(`  ${who}：${(m.text || '（没有正文）').slice(0, 120)}`)
+         }
+@@ -836,3 +836,3 @@
+     groupFedAt.set(chat.groupId, Date.now())
+-    const line = (x) => `${x.nick}(${x.uid})${x.at ? '@了你' : ''}：${x.text || '（图片/表情）'}`
++    const line = (x) => `${x.nick}(${x.uid})${x.at ? '@了你' : ''}：${x.text || '（没有正文）'}`
+     // 新消息带编号，她想专门回某一条时可以引用；编号 → QQ 消息 ID 记下来，发的时候换成引用
