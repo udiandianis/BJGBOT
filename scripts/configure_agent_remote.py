@@ -28,6 +28,7 @@ data.mkdir(parents=True, exist_ok=True)
 aurabot_path = data / 'config.json'
 first = not aurabot_path.exists()
 aurabot = json.loads(aurabot_path.read_text()) if not first else {}
+# 此字段仅为社区权限说明提供角色名称，日常称呼由人格卡决定。
 if aurabot.get('ownerName', '主人') in ('', '主人'):
     aurabot['ownerName'] = '管理员'
 aurabot.update(enabled=True, dryRun=False, setupDone=True, botQQ=str(config['bot']['qq']),
