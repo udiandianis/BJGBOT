@@ -113,3 +113,23 @@ class QueryProgressTests(unittest.TestCase):
         self.assertEqual(cells['CF'], '0/0')
         self.assertEqual(cells['LG'], '获取失败')
         self.assertEqual(cells['NK'], '暂未绑定')
+
+    def test_training_report_displays_totals_and_completion_colors(self):
+        problems = {key: set(range(4)) for key in trainings.TRAINING_LABELS}
+        counts = {key: 0 for key in trainings.TRAINING_LABELS}
+        counts.update({100: 4, 101: 3, 102: 1})
+        record = {'name': '测试用户', 'failed': False, 'total': 8, 'by_training': counts}
+        figure, axes = Mock(), MagicMock()
+        with patch.object(trainings, 'list_report_users', return_value=[{'name': '测试用户'}]), \
+             patch.object(trainings, 'load_training_problems', return_value=problems), \
+             patch.object(trainings, 'fetch_user_progress', return_value=record), \
+             patch.object(trainings, 'configure_matplotlib'), \
+             patch.object(trainings.pyplot, 'subplots', return_value=(figure, axes)), \
+             patch.object(trainings.pyplot, 'close'), patch.object(trainings, 'REPORT_DIRECTORY'):
+            trainings.get_png()
+        row = axes.table.call_args.kwargs['cellText'][0]
+        self.assertEqual(row[1:5], ['4/4', '3/4', '1/4', '0/4'])
+        self.assertEqual(row[-1], '8/72')
+        report = axes.table.return_value
+        self.assertIn(call('#14532d'), report.__getitem__.return_value.set_facecolor.call_args_list)
+        self.assertIn(call('#ffffff'), report.__getitem__.return_value.set_facecolor.call_args_list)

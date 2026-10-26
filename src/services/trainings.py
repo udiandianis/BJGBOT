@@ -118,16 +118,18 @@ def get_png(on_progress=None):
             if on_progress:
                 on_progress(len(records), len(participants))
     records.sort(key=lambda record: (record['failed'], -record.get('total', 0)))
+    total_problems = sum(len(problems) for problems in problem_lists.values())
     rows = []
     for record in records:
         row = {'姓名': record['name']}
-        row.update({label: '-' if record['failed'] else record['by_training'][training_id]
+        row.update({label: '-' if record['failed'] else f'{record["by_training"][training_id]}/{len(problem_lists[training_id])}'
                     for training_id, label in TRAINING_LABELS.items()})
-        row['总计'] = '查询失败' if record['failed'] else record['total']
+        row['总计'] = '查询失败' if record['failed'] else f'{record["total"]}/{total_problems}'
         rows.append(row)
     configure_matplotlib()
     figure, axes = pyplot.subplots(figsize=(20, max(2.5, len(rows) * 0.5)))
     axes.axis('off')
+    axes.set_title('已完成/总题数 · 颜色越深，完成比例越高', fontsize=14, pad=12)
     columns = list(rows[0])
     report = axes.table(cellText=[[row[column] for column in columns] for row in rows],
                         colLabels=columns, loc='center', cellLoc='center',
@@ -139,10 +141,13 @@ def get_png(on_progress=None):
         if record['failed']:
             report[row_index, 0].set_text_props(color='orange')
         else:
-            for column, training_id in enumerate(TRAINING_LABELS, start=1):
-                completed = record['by_training'][training_id]
-                fraction = min(1, completed / max(1, len(problem_lists.get(training_id, ()))))
-                report[row_index, column].set_facecolor((1 - fraction, 1, 1 - fraction))
+            counts = [(record['by_training'][training_id], len(problem_lists[training_id]))
+                      for training_id in TRAINING_LABELS] + [(record['total'], total_problems)]
+            for column, (completed, total) in enumerate(counts, start=1):
+                fraction = min(1, completed / max(1, total))
+                level = 0 if completed == 0 else 1 + sum(fraction >= threshold for threshold in (0.25, 0.5, 0.75, 1))
+                report[row_index, column].set_facecolor(('#ffffff', '#dcfce7', '#86efac', '#4ade80', '#15803d', '#14532d')[level])
+                report[row_index, column].set_text_props(color='white' if level >= 4 else '#111827')
     figure.tight_layout()
     REPORT_DIRECTORY.mkdir(parents=True, exist_ok=True)
     figure.savefig(REPORT_DIRECTORY / 'luogu.png', bbox_inches='tight', dpi=300)
