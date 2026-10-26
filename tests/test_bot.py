@@ -3,6 +3,7 @@ import json
 import os
 import tempfile
 import unittest
+import requests
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -531,10 +532,29 @@ class ProviderAndMediaTests(unittest.TestCase):
     def test_signed_media_url_is_sent_as_unescaped_message_segment(self):
         client = NapCatClient(test_settings())
         for kind in ('image', 'video', 'record', 'file'):
-            with self.subTest(kind=kind), patch.object(client, 'call') as api:
+            with self.subTest(kind=kind), patch.object(client, 'call', return_value={'file': '/napcat/temp/image'}) as api:
                 client.send_group(7, f'[CQ:{kind},file=https://example.com/1.jpg?a=1&amp;b=x%2Fy&amp;c=3&#44;4]')
-                api.assert_called_once_with('send_group_msg', group_id=7, message=[
-                    {'type': kind, 'data': {'file': 'https://example.com/1.jpg?a=1&b=x%2Fy&c=3,4'}}])
+                self.assertEqual(api.call_args_list[0].args, ('download_file',))
+                self.assertEqual(api.call_args_list[0].kwargs, {'url': 'https://example.com/1.jpg?a=1&b=x%2Fy&c=3,4', 'thread_count': 1})
+                self.assertEqual(api.call_args.kwargs['message'], [{'type': kind, 'data': {'file': '/napcat/temp/image'}}])
+
+    def test_media_download_retries_but_send_is_not_repeated(self):
+        client = NapCatClient(test_settings())
+        message = [{'type': 'image', 'data': {'url': 'https://example.com/image'}}]
+        with patch.object(client, 'call', side_effect=[requests.Timeout(), {'file': '/napcat/temp/image'}, {'message_id': 1}]) as api:
+            result = client.send_group(7, message)
+        self.assertEqual(result, {'message_id': 1})
+        self.assertEqual([call.args[0] for call in api.call_args_list], ['download_file', 'download_file', 'send_group_msg'])
+        self.assertEqual(api.call_args.kwargs['message'], [{'type': 'image', 'data': {'file': '/napcat/temp/image'}}])
+        self.assertEqual(message[0]['data'], {'url': 'https://example.com/image'})
+
+    def test_exhausted_download_does_not_send_media(self):
+        client = NapCatClient(test_settings())
+        with patch.object(client, 'call', side_effect=requests.Timeout()) as api:
+            with self.assertRaises(requests.Timeout):
+                client.send_group(7, '[CQ:image,file=https://example.com/image]')
+        self.assertEqual(api.call_count, 3)
+        self.assertTrue(all(call.args[0] == 'download_file' for call in api.call_args_list))
 
     def test_plain_text_and_existing_segments_are_preserved(self):
         client = NapCatClient(test_settings())

@@ -28,7 +28,30 @@ class NapCatClient:
         """向指定群发送消息，返回 NapCat 接口结果。"""
         if isinstance(message, str) and '[CQ:' in message:
             message = segments(message)
+        if isinstance(message, list):
+            message = [dict(part, data=dict(part['data'])) for part in message]
+            for part in message:
+                if part['type'] not in ('image', 'video', 'record', 'file'):
+                    continue
+                data = part['data']
+                location = data.get('url') or data.get('file', '')
+                if not location.startswith(('https://', 'http://')):
+                    continue
+                data['file'] = self.download_file(location)
+                data.pop('url', None)
         return self.call('send_group_msg', group_id=group_id, message=message)
+
+    def download_file(self, url):
+        """通过独立下载接口取得 NapCat 本机路径，网络异常最多重试两次。"""
+        for attempt in range(3):
+            try:
+                result = self.call('download_file', url=url, thread_count=1)
+                if not result or not result.get('file'):
+                    raise NapCatError('下载接口未返回文件路径')
+                return result['file']
+            except (requests.RequestException, NapCatError):
+                if attempt == 2:
+                    raise
 
     def send_forward(self, group_id, text):
         """按段落拆分文本，以多节点合并转发消息发送到指定群。"""
