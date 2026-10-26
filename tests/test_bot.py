@@ -528,6 +528,21 @@ class ProviderAndMediaTests(unittest.TestCase):
         self.assertEqual(len(nodes), 2)
         self.assertEqual(nodes[1]['data']['content'][0]['data']['text'], 'second')
 
+    def test_signed_media_url_is_sent_as_unescaped_message_segment(self):
+        client = NapCatClient(test_settings())
+        for kind in ('image', 'video', 'record', 'file'):
+            with self.subTest(kind=kind), patch.object(client, 'call') as api:
+                client.send_group(7, f'[CQ:{kind},file=https://example.com/1.jpg?a=1&amp;b=x%2Fy&amp;c=3&#44;4]')
+                api.assert_called_once_with('send_group_msg', group_id=7, message=[
+                    {'type': kind, 'data': {'file': 'https://example.com/1.jpg?a=1&b=x%2Fy&c=3,4'}}])
+
+    def test_plain_text_and_existing_segments_are_preserved(self):
+        client = NapCatClient(test_settings())
+        for message in ('hello &amp; world', [{'type': 'text', 'data': {'text': 'hello'}}]):
+            with patch.object(client, 'call') as api:
+                client.send_group(7, message)
+                api.assert_called_once_with('send_group_msg', group_id=7, message=message)
+
     def test_luogu_cookie_sent_and_expiry_reported(self):
         settings = replace(test_settings(), luogu_cookies={'_uid': '123', '__client_id': 'test'})
         response = Mock(status_code=401)

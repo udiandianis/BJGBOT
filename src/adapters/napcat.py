@@ -1,4 +1,5 @@
 import requests
+from ..events import segments
 
 
 class NapCatError(RuntimeError):
@@ -25,6 +26,8 @@ class NapCatClient:
 
     def send_group(self, group_id, message):
         """向指定群发送消息，返回 NapCat 接口结果。"""
+        if isinstance(message, str) and '[CQ:' in message:
+            message = segments(message)
         return self.call('send_group_msg', group_id=group_id, message=message)
 
     def send_forward(self, group_id, text):
