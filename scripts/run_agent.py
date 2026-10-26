@@ -17,9 +17,9 @@ node = str(root / '.agent/node/bin/node')
 if len(sys.argv) > 1 and sys.argv[1] == 'gateway':
     arguments = [node, str(root / 'scripts/agent_gateway.mjs')]
 else:
-    # 社区只支持一个主人，账号统一取现有配置的首位机器人管理员。
+    # 社区只支持一个 ownerQQ，账号统一取现有配置的首位机器人管理员。
     if not config['collections']['admins']:
-        raise RuntimeError('请先配置 collections.admins，首位管理员作为社区主人')
+        raise RuntimeError('请先配置 collections.admins，首位管理员作为 Agent 管理员')
     community_config = root / '.agent/home/plugins-data/aurabot/config.json'
     community = json.loads(community_config.read_text(encoding='utf-8'))
     owner_qq = str(config['collections']['admins'][0])

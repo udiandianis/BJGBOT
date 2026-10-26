@@ -9,7 +9,7 @@ root = Path(__file__).resolve().parents[1]
 path = root / 'config/bot_settings.json'
 config = json.loads(path.read_text(encoding='utf-8-sig'))
 if not config['collections']['admins']:
-    raise RuntimeError('请先配置 collections.admins，首位管理员作为社区主人')
+    raise RuntimeError('请先配置 collections.admins，首位管理员作为 Agent 管理员')
 owner_qq = str(config['collections']['admins'][0])
 backup = root / 'output/deployment' / ('pre-agent-' + datetime.now().strftime('%Y%m%d-%H%M%S'))
 backup.mkdir(parents=True)
@@ -28,6 +28,8 @@ data.mkdir(parents=True, exist_ok=True)
 aurabot_path = data / 'config.json'
 first = not aurabot_path.exists()
 aurabot = json.loads(aurabot_path.read_text()) if not first else {}
+if aurabot.get('ownerName', '主人') in ('', '主人'):
+    aurabot['ownerName'] = '管理员'
 aurabot.update(enabled=True, dryRun=False, setupDone=True, botQQ=str(config['bot']['qq']),
                ownerQQ=owner_qq, ownerLevel='full',
                model={'provider': 'deepseek-official', 'model': config['ai']['deepseek']['model'], 'reasoningEffort': 'low'})
