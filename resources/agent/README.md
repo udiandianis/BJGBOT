@@ -31,7 +31,7 @@
 
 图片直接交给 DeepSeek Flash 识别，没有额外的 GPT 识图服务。语音依赖社区 TTS/ASR 的可用性；原版内置语音安装器和本机语音回退偏向 Windows，本次 Linux 部署未配置语音和翻唱服务。
 
-生图使用社区内置的 `qq_draw_image`：在社区面板“生图”页选择接口类型，配置服务地址、模型和 Key，开启后按描述生成图片并发送到当前聊天。Gemini 地址使用 `/v1beta` 前缀，OpenAI 兼容服务使用 `/v1` 前缀。凭据保存在被 Git 忽略的社区配置中，聊天模型仍可使用 DeepSeek。管理员权限使用原生 `imageGen.ownerOnly` 设置；[发送结果补丁](community/image-send-result.patch)确保 QQ 发送失败时不误报成功。
+生图使用社区内置的 `qq_draw_image`：在社区面板“生图”页选择接口类型，配置服务地址、模型和 Key，开启后按描述生成图片并发送到当前聊天。Gemini 地址使用 `/v1beta` 前缀，OpenAI 兼容服务使用 `/v1` 前缀。凭据保存在被 Git 忽略的社区配置中，聊天模型仍可使用 DeepSeek。`imageGen.ownerOnly=false` 允许已开启群聊和允许私聊中的普通用户请求画图，首次配置默认关闭“仅管理员可画图”；服务器工具权限仍按管理员身份校验。[发送结果补丁](community/image-send-result.patch)确保 QQ 发送失败时不误报成功。
 
 [多服务生图补丁](community/image-backend-fallback.patch)支持 Gemini 原生 `generateContent` 和 OpenAI 兼容生图接口。`imageGen` 是首选，`imageGen.fallbacks` 中的服务按数组顺序备用；当前顺序为 Gemini Pro Image、Gemini Flash Image、Grok Imagine。网络错误、超时、未返回有效图片时切换，成功立即停止；明确的内容拒绝不会触发绕过重试。全部失败时只把失败事实交给大肥鱼，由当前人格自然回应，技术错误记入后台日志。面板不回传任何首选或备用服务的完整 Key，普通保存会保留凭据。
 

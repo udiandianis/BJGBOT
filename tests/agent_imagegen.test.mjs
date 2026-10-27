@@ -8,10 +8,10 @@ const {default:module}=await import(pathToFileURL(join(source,'src/modules/image
 const originalFetch=globalThis.fetch
 afterEach(()=>{globalThis.fetch=originalFetch})
 
-function host({authorized=true,sent={message_id:1},enabled=true}={}) {
+function host({authorized=true,sent={message_id:1},enabled=true,ownerOnly=true}={}) {
   let builder,calls=0
   const deliveries=[],memories=[]
-  const config={imageGen:{enabled,baseUrl:'https://example.invalid/v1',model:'test-image',ownerOnly:true,size:'1024x1024',stylePrompt:''}}
+  const config={imageGen:{enabled,baseUrl:'https://example.invalid/v1',model:'test-image',ownerOnly,size:'1024x1024',stylePrompt:''}}
   globalThis.fetch=async()=>{
     calls++
     return new Response(JSON.stringify({data:[{b64_json:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII='}]}),{headers:{'content-type':'application/json'}})
@@ -29,6 +29,14 @@ test('native administrator setting rejects unauthorized generation before callin
   const h=host({authorized:false})
   assert.equal((await h.tool.execute({prompt:'a whale'})).ok,false)
   assert.equal(h.calls(),0)
+})
+
+test('ordinary group members can generate and send images when ownerOnly is disabled',async()=>{
+  const h=host({authorized:false,ownerOnly:false})
+  assert.equal((await h.tool.execute({prompt:'a whale'})).ok,true)
+  assert.equal(h.calls(),1)
+  assert.equal(h.deliveries[0][0],'group:1')
+  assert.equal(h.deliveries[0][1][0].type,'image')
 })
 test('generation followed by a failed QQ send returns failure and does not record a successful event',async()=>{
   const h=host({sent:null})

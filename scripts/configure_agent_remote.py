@@ -49,6 +49,7 @@ aurabot['snowluma'] = dict(aurabot.get('snowluma', {}), autoStart=False, autoAtt
                            httpToken=token, wsToken=token)
 if first:
     aurabot['allow'] = {'private': [], 'groups': []}
+    aurabot['imageGen'] = {'ownerOnly': False}
     # 本次接入针对群聊；空间发布、站外互动、私聊定时推送尚未配置。
     for key in ('diary', 'qzoneSocial', 'bili', 'speakUp'):
         aurabot[key] = {'enabled': False}
