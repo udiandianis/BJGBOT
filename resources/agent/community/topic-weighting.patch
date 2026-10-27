@@ -1,0 +1,47 @@
+--- a/src/chat/group-policy.js
++++ b/src/chat/group-policy.js
+@@ -11,7 +11,7 @@
+   activeWindowSec: 300,
+   // 话题相关度：群里正在聊的东西和她有关（碰到她感兴趣的话题、或者她记得相关的事），才可能插话
+   interests: ['白米饭', '米饭', '吃饭', '好吃', '饿了', '游戏', '追剧', '番剧', '动漫', '猫', '狗', '鲸鱼', '鱼', '睡觉', '熬夜', '困', '天气', '下雨', '表情包', '女仆', '可爱', '奶茶', '甜品'],
+-  minRelevance: 0.25, // 相关度低于这个就不插话（0 = 不看话题，纯随机）
++  minRelevance: 0, // 0 = 取消话题硬门槛，相关度仍会提高插话概率
+   burstMax: 8, // 安全刹车：burstWindowSec 秒内她最多说这么多次，超了就歇着（管理员 @ 除外），只防失控
+   burstWindowSec: 120,
+ }
+@@ -89,9 +89,9 @@
+   if (pol.cooldownSec > 0 && p.now - last < pol.cooldownSec * 1000) return { reply: false, mode: 'none', reason: '插话冷却中' }
+   const recent = (p.recentTimes || []).filter((t) => p.now - t < pol.activeWindowSec * 1000).length
+   if (recent < pol.minRecentMessages) return { reply: false, mode: 'none', reason: '群里没在聊' }
+-  // 话题和她有关才插，越相关越容易插（不传 relevance 时按「不看话题」处理，兼容旧调用）
++  // 相关度用于加权；门槛为 0 时，普通话题也能按基础概率参与
+   if (minRel > 0 && rel < minRel) return { reply: false, mode: 'none', reason: `话题和她关系不大（相关度 ${rel.toFixed(2)}）` }
+-  const chance = Math.min(pol.interjectMaxChance ?? 0.9, pol.interjectChance * (minRel > 0 ? 1 + 4 * rel : 1))
++  const chance = Math.min(pol.interjectMaxChance ?? 0.9, pol.interjectChance * (1 + 4 * rel))
+   if (rand() < chance) return { reply: true, mode: 'interject', reason: `话题相关，插一句（相关度 ${rel.toFixed(2)}）` }
+   return { reply: false, mode: 'none', reason: '这次不插话' }
+ }
+--- a/src/core/config.js
++++ b/src/core/config.js
+@@ -240,7 +240,7 @@
+   if (!c.memory.consolidateTimes.length) c.memory.consolidateTimes = ['04:00', '16:00']
+   c.memory.recallCount = num(c.memory.recallCount, 6, 0, 20)
+   g.interests = (Array.isArray(g.interests) ? g.interests : String(g.interests || '').split(/[\s,，]+/)).map((s) => String(s).trim()).filter(Boolean)
+-  g.minRelevance = num(g.minRelevance, 0.25, 0, 1)
++  g.minRelevance = num(g.minRelevance, 0, 0, 1)
+   c.merge.enabled = bool(c.merge.enabled, true)
+   c.merge.waitSec = num(c.merge.waitSec, 2.5, 0, 30)
+   c.merge.maxSec = Math.max(c.merge.waitSec, num(c.merge.maxSec, 8, 0, 60))
+--- a/client/client.js
++++ b/client/client.js
+@@ -775,8 +775,8 @@
+           h(Row, { label: '冷却', hint: '两次插话至少隔多久，0 = 不限制' }, f.range('group.cooldownSec', 0, 600, 10, (v) => v + ' 秒')),
+           h(Row, { label: '每小时最多插话', hint: '0 = 不限制' }, f.range('group.maxPerHour', 0, 30, 1, (v) => v + ' 次')),
+           h(Row, { label: '她感兴趣的话题', hint: '群里在聊这些（或她记得相关的事）时更容易插话；一行一个' }, f.list('group.interests', { placeholder: '白米饭\n游戏\n追剧' })),
+-          h(Row, { label: '话题相关度门槛', hint: '和她关系不大的话题就不插话；拉到 0 = 不看话题、纯随机' }, f.range('group.minRelevance', 0, 1, 0.05, (v) => (v === 0 ? '不看话题' : Math.round(v * 100) + '%'))),
+-          h('div', { className: 'ab-note', style: { marginTop: 8 } }, '她被叫到或插上话以后算「加入了话题」：话题还和她相关、她 3 分钟内说过话，就会接着聊下去（每次看完群里新说的一段再回），不受冷却和每小时上限限制；话题跑偏或者她选择不说话就退出。'),
++          h(Row, { label: '话题相关度门槛', hint: '0 = 取消话题硬门槛；普通话题按基础概率参与，相关话题仍会加权' }, f.range('group.minRelevance', 0, 1, 0.05, (v) => (v === 0 ? '无硬门槛' : Math.round(v * 100) + '%'))),
++          h('div', { className: 'ab-note', style: { marginTop: 8 } }, '她被叫到或插上话以后算「加入了话题」：3 分钟内说过话就会继续参与（每次看完群里新说的一段再回），不受冷却和每小时上限限制；配置了话题门槛时，续聊也需要达到门槛，她仍可选择不说话。'),
+           h(Row, { label: '群冷清时不插话', hint: '最近几分钟内消息少于这个数就不插' }, f.num('group.minRecentMessages', { min: 0 }), h('span', { className: 'ab-muted' }, '条 / '), f.num('group.activeWindowSec', { min: 30 }), h('span', { className: 'ab-muted' }, '秒')),
+           h(Row, { label: '静默时段', hint: '这段时间不插话（被叫到还是会回）' },
+             h('input', { className: 'ab-input sm', type: 'number', min: 0, max: 23, value: draft.group.quietHours[0], onChange: (e) => setDraft(setPath(draft, 'group.quietHours', [Number(e.target.value), draft.group.quietHours[1]])) }),

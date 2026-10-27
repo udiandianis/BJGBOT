@@ -5,6 +5,7 @@ from pathlib import Path
 import secrets
 import shutil
 import subprocess
+import tempfile
 
 root = Path(__file__).resolve().parents[1]
 path = root / 'config/bot_settings.json'
@@ -16,13 +17,23 @@ backup = root / 'output/deployment' / ('pre-agent-' + datetime.now().strftime('%
 backup.mkdir(parents=True)
 shutil.copy2(path, backup / path.name)
 
-# 固定社区版本的提示文字适配；权限校验代码不作修改，重复部署不会重复应用。
+# 从后往前在临时副本中撤回已应用补丁，识别后续补丁覆盖过的早期改动。
+# 真实运行目录只应用缺失的补丁，重复部署不改写现有社区设置。
 apply_args = ['git', 'apply', '--directory=.agent/aurabot']
-for patch_name in ('permission-only.patch', 'empty-message.patch', 'quoted-and-recent-images.patch', 'image-send-result.patch', 'image-backend-fallback.patch', 'group-interjection.patch', 'optional-burst-limit.patch'):
-    patch_bytes = (root / 'resources/agent/community' / patch_name).read_text(encoding='utf-8').encode()
-    applied = subprocess.run([*apply_args, '--reverse', '--check'], input=patch_bytes,
-                             cwd=root, capture_output=True).returncode == 0
-    if not applied:
+patch_dir = root / 'resources/agent/community'
+patches = [(name, (patch_dir / name).read_text(encoding='utf-8').encode())
+           for name in json.loads((patch_dir / 'SOURCE.json').read_text(encoding='utf-8'))['local_patches']]
+applied = set()
+with tempfile.TemporaryDirectory(prefix='bjgbot-patches-') as temp:
+    probe = Path(temp) / 'aurabot'
+    shutil.copytree(root / '.agent/aurabot', probe, symlinks=True)
+    for patch_name, patch_bytes in reversed(patches):
+        if subprocess.run(['git', 'apply', '--reverse', '--check'], input=patch_bytes,
+                          cwd=probe, capture_output=True).returncode == 0:
+            subprocess.run(['git', 'apply', '--reverse'], input=patch_bytes, cwd=probe, check=True)
+            applied.add(patch_name)
+for patch_name, patch_bytes in patches:
+    if patch_name not in applied:
         subprocess.run(apply_args, input=patch_bytes, cwd=root, check=True)
 
 # 现有官方接口的旧别名已由服务端转到 Flash，改为官方模型列表中的正式名称。
@@ -49,7 +60,7 @@ aurabot['snowluma'] = dict(aurabot.get('snowluma', {}), autoStart=False, autoAtt
                            httpToken=token, wsToken=token)
 if first:
     aurabot['allow'] = {'private': [], 'groups': []}
-    aurabot['group'] = {'burstMax': 0}
+    aurabot['group'] = {'burstMax': 0, 'minRelevance': 0}
     aurabot['imageGen'] = {'ownerOnly': False}
     # 本次接入针对群聊；空间发布、站外互动、私聊定时推送尚未配置。
     for key in ('diary', 'qzoneSocial', 'bili', 'speakUp'):

@@ -43,9 +43,28 @@ test('zero disables the burst limit for ordinary mentions, interjections and ong
   assert.equal(decide(group, { botReplyTimes, engagedUntil: now + 10_000 }).mode, 'engaged')
 })
 
-test('quiet hours and relevance still apply, and optional burst limits can be configured explicitly', () => {
+test('quiet hours, group activity and explicit optional gates still apply', () => {
   assert.equal(decide({}, { hour: 3 }).reply, false)
-  assert.equal(decide({}, { relevance: 0 }).reply, false)
+  assert.equal(decide({}, { recentTimes: [now] }).reply, false)
+  assert.equal(decide({ minRelevance: 0.25 }, { relevance: 0 }).reply, false)
   assert.equal(decide({ burstMax: 8 }, { botReplyTimes: Array(8).fill(now - 1000) }).reply, false)
   assert.equal(decide({}, { mentioned: true, hour: 3 }).mode, 'must')
+})
+
+test('ordinary topics and low-relevance ongoing conversations pass without a hard topic gate', () => {
+  const group = normalize({}).group
+  assert.equal(group.minRelevance, 0)
+  assert.equal(decide(group, { relevance: 0, rand: () => 0.299 }).mode, 'interject')
+  assert.equal(decide(group, { relevance: 0, rand: () => 0.3 }).reply, false)
+  assert.equal(decide(group, { relevance: 0, engagedUntil: now + 10_000 }).mode, 'engaged')
+})
+
+test('zero threshold retains relevance weighting and mood while respecting the 90 percent cap', () => {
+  const group = normalize({}).group
+  assert.equal(decide(group, { relevance: 0.1, rand: () => 0.419 }).reply, true)
+  assert.equal(decide(group, { relevance: 0.1, rand: () => 0.42 }).reply, false)
+  assert.equal(decide({ ...group, interjectChance: 0.3 * 1.2 }, { relevance: 0, rand: () => 0.359 }).reply, true)
+  assert.equal(decide({ ...group, interjectChance: 0.3 * 1.2 }, { relevance: 0, rand: () => 0.36 }).reply, false)
+  assert.equal(decide(group, { relevance: 1, rand: () => 0.899 }).reply, true)
+  assert.equal(decide(group, { relevance: 1, rand: () => 0.9 }).reply, false)
 })
