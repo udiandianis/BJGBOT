@@ -50,7 +50,7 @@ test('search exposes real image attachments; send delivers bytes to current chat
   assert.equal(found.ok, true)
   assert.equal(h.sent.length, 0)
   assert(h.fetched[0].url.includes(encodeURIComponent('委屈猫猫 表情包').replaceAll('%20', '+')))
-  assert(h.fetched.every(x => x.options.redirect === 'error'))
+  assert(h.fetched.every(x => x.options.redirect === 'manual'))
   const blocks = search.output.render({}, found)
   assert.equal(blocks.filter(x => x.type === 'image').length, 1)
   assert.equal(blocks.find(x => x.type === 'image').attachment.attachmentId, 'test-image')
@@ -97,4 +97,22 @@ test('blocked search and non-image previews return failures without sending anyt
     { headers: { 'content-type': 'text/html' } })
   assert.equal((await search.execute({ query: '猫猫' })).ok, false)
   assert.equal(h.sent.length, 0)
+})
+
+test('China Bing redirects work while redirects to arbitrary or internal addresses are blocked before fetching', async () => {
+  const h = host(), [search] = h.tools('1')
+  const normal = globalThis.fetch
+  globalThis.fetch = async (url, options) => String(url).startsWith('https://www.bing.com/')
+    ? new Response('', { status: 302, headers: { location: String(url).replace('www.bing.com', 'cn.bing.com') } })
+    : String(url).startsWith('https://cn.bing.com/') ? new Response(html) : normal(url, options)
+  assert.equal((await search.execute({ query: '猫猫' })).ok, true)
+  for (const target of ['http://127.0.0.1/admin', 'https://example.org/file']) {
+    let calls = 0
+    globalThis.fetch = async () => {
+      calls++
+      return new Response('', { status: 302, headers: { location: target } })
+    }
+    assert.equal((await search.execute({ query: '猫猫' })).ok, false)
+    assert.equal(calls, 1)
+  }
 })

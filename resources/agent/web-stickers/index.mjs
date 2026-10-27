@@ -35,16 +35,30 @@ export function parseImages(html) {
 }
 
 async function download(url, maxBytes) {
-  const r = await fetch(url, { headers, redirect: 'error', signal: AbortSignal.timeout(20_000) })
-  if (!r.ok) throw new Error('搜索服务返回 HTTP ' + r.status)
-  const chunks = []
-  let size = 0
-  for await (const chunk of r.body) {
-    size += chunk.length
-    if (size > maxBytes) throw new Error('搜索结果过大')
-    chunks.push(chunk)
+  for (let hop = 0; hop < 4; hop++) {
+    const u = new URL(url)
+    if (!isPreviewUrl(u) && !(u.protocol === 'https:' && !u.username && !u.password && !u.port
+      && ['www.bing.com', 'cn.bing.com'].includes(u.hostname) && u.pathname === '/images/search'))
+      throw new Error('搜索服务返回了不允许的图片地址')
+    const r = await fetch(u, { headers, redirect: 'manual', signal: AbortSignal.timeout(20_000) })
+    if ([301, 302, 303, 307, 308].includes(r.status)) {
+      const location = r.headers.get('location')
+      await r.body?.cancel()
+      if (!location) throw new Error('搜索服务的跳转地址为空')
+      url = new URL(location, u)
+      continue
+    }
+    if (!r.ok) throw new Error('搜索服务返回 HTTP ' + r.status)
+    const chunks = []
+    let size = 0
+    for await (const chunk of r.body) {
+      size += chunk.length
+      if (size > maxBytes) throw new Error('搜索结果过大')
+      chunks.push(chunk)
+    }
+    return { bytes: Buffer.concat(chunks), type: (r.headers.get('content-type') || '').split(';')[0] }
   }
-  return { bytes: Buffer.concat(chunks), type: (r.headers.get('content-type') || '').split(';')[0] }
+  throw new Error('搜索服务跳转次数过多')
 }
 
 export default {
