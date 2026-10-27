@@ -34,9 +34,18 @@ test('nonzero optional rate settings still work when explicitly configured', () 
   assert.equal(decide({ cooldownSec: 90 }, { interjectTimes: [now - 30_000] }).reply, false)
 })
 
-test('quiet hours, relevance and burst brakes remain effective, and mentions still trigger', () => {
+test('zero disables the burst limit for ordinary mentions, interjections and ongoing conversations', () => {
+  const group = normalize({ group: { burstMax: 0 } }).group
+  assert.equal(group.burstMax, 0)
+  const botReplyTimes = Array(100).fill(now - 1000)
+  assert.equal(decide(group, { botReplyTimes, mentioned: true }).mode, 'must')
+  assert.equal(decide(group, { botReplyTimes }).mode, 'interject')
+  assert.equal(decide(group, { botReplyTimes, engagedUntil: now + 10_000 }).mode, 'engaged')
+})
+
+test('quiet hours and relevance still apply, and optional burst limits can be configured explicitly', () => {
   assert.equal(decide({}, { hour: 3 }).reply, false)
   assert.equal(decide({}, { relevance: 0 }).reply, false)
-  assert.equal(decide({}, { botReplyTimes: Array(8).fill(now - 1000) }).reply, false)
+  assert.equal(decide({ burstMax: 8 }, { botReplyTimes: Array(8).fill(now - 1000) }).reply, false)
   assert.equal(decide({}, { mentioned: true, hour: 3 }).mode, 'must')
 })

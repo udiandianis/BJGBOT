@@ -3,5 +3,5 @@
   "commit": "062f3653df7091344756168078f28ea87934d9c0",
   "persona": "personas/dafeiyu.md",
   "license": "MIT",
-  "local_patches": ["permission-only.patch", "empty-message.patch", "quoted-and-recent-images.patch", "image-send-result.patch", "image-backend-fallback.patch", "group-interjection.patch"]
+  "local_patches": ["permission-only.patch", "empty-message.patch", "quoted-and-recent-images.patch", "image-send-result.patch", "image-backend-fallback.patch", "group-interjection.patch", "optional-burst-limit.patch"]
 }

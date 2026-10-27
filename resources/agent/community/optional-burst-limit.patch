@@ -1,0 +1,22 @@
+--- a/src/chat/group-policy.js
++++ b/src/chat/group-policy.js
+@@ -66,7 +66,7 @@
+   const said = p.botReplyTimes || []
+   // 刹车：短时间里说太多了就歇一会儿，只有主人 @ 能叫动
+   const burst = said.filter((t) => p.now - t < (pol.burstWindowSec ?? 120) * 1000).length
+-  if (burst >= (pol.burstMax ?? 8) && !(p.fromOwner && (p.mentioned || p.repliedToBot))) {
++  if (pol.burstMax > 0 && burst >= pol.burstMax && !(p.fromOwner && (p.mentioned || p.repliedToBot))) {
+     return { reply: false, mode: 'none', reason: `刚说了太多（${burst} 次），歇一会儿` }
+   }
+   if (p.mentioned) return { reply: true, mode: 'must', reason: '被 @' }
+--- a/src/core/config.js
++++ b/src/core/config.js
+@@ -246,7 +246,7 @@
+   c.merge.maxSec = Math.max(c.merge.waitSec, num(c.merge.maxSec, 8, 0, 60))
+   c.merge.groupWaitSec = num(c.merge.groupWaitSec, 5, 0, 60)
+   c.merge.groupMaxSec = Math.max(c.merge.groupWaitSec, num(c.merge.groupMaxSec, 15, 0, 120))
+-  g.burstMax = num(g.burstMax, 8, 1, 50)
++  g.burstMax = num(g.burstMax, 0, 0, 50)
+   g.burstWindowSec = num(g.burstWindowSec, 120, 10, 3600)
+   if (!['auto', 'edge', 'windows', 'cosyvoice', 'gptsovits', 'http'].includes(c.voice.engine)) c.voice.engine = 'auto'
+   c.voice.cosyvoice.sampleRate = num(c.voice.cosyvoice.sampleRate, 22050, 8000, 48000)
