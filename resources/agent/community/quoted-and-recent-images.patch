@@ -1,0 +1,77 @@
+--- a/src/chat/hub.js
++++ b/src/chat/hub.js
+@@ -614,7 +614,21 @@
+ 
+   async function imagesOf(msg) {
+     const out = []
+-    for (const seg of [...msg.stickers, ...msg.images].slice(0, 4)) {
++    const segments = [...(msg.stickers || []), ...(msg.images || [])]
++    // 引用回复只有消息 ID，图片需要从同一聊天的原消息补取。
++    if (msg.replyId && segments.length < 4) {
++      try {
++        const original = await onebot.call('get_msg', { message_id: Number(msg.replyId) }, { timeoutMs: 10000 })
++        const quoted = parseMessageEvent(original, selfId)
++        if (quoted.chatId === msg.chatId) segments.push(...quoted.stickers, ...quoted.images)
++      } catch (error) { log.debug('引用图片读取失败：', error.message) }
++    }
++    const seen = new Set()
++    for (const seg of segments) {
++      const key = seg.data?.file || seg.data?.url
++      if (key && seen.has(key)) continue
++      if (key) seen.add(key)
++      if (out.length >= 4) break
+       try {
+         const buf = await segmentBytes(seg, onebot, { maxBytes: 8 * 1024 * 1024 })
+         const mime = mimeOf(buf)
+@@ -638,7 +652,8 @@
+     // 群里的每条消息都记进缓冲（给上下文和「群里在不在聊」用）
+     if (msg.kind === 'group') {
+       const buf = groupBuf.get(msg.groupId) || []
+-      buf.push({ t: now, uid: msg.userId, nick: msg.nickname, text: msg.text, at: msg.mentioned, mid: msg.messageId })
++      buf.push({ t: now, uid: msg.userId, nick: msg.nickname, text: msg.text, at: msg.mentioned, mid: msg.messageId,
++        images: msg.images, stickers: msg.stickers, replyId: msg.replyId })
+       while (buf.length > 40) buf.shift()
+       groupBuf.set(msg.groupId, buf)
+     }
+@@ -851,7 +866,7 @@
+       `【群聊 ${name}】刚才新说的（${fresh.length} 条）${hint}\n${numbered.join('\n')}\n\n` +
+       '把这一段当成整体来回：一般说一两句就好，回给最需要回的那个人或者整个话题，不要一条一条地挨个回。\n' +
+       '大多数时候直接说就行。只有想专门接其中某一条、而直接说别人会看不出你在回谁时（比如那条已经被后面的话刷上去了、或者你在回某个人随口一提的事），才在那句话开头写 <reply:编号>，会以「引用回复」发出；一次最多引用一条。'
+-    return { text, query, speakers }
++    return { text, query, speakers, messages: fresh }
+   }
+ 
+   // ---------- 连发合并：人常常一口气发好几句，等对方说完再一起交给她，别一句一回 ----------
+@@ -896,6 +911,7 @@
+       return
+     }
+     pending.delete(chatId)
++    busy.set(chatId, Date.now())
+     if (p.count > 1) log.info(`${chatId}：合并了 ${p.count} 条消息一起交给她`)
+     let content
+     if (p.chat.kind === 'group') {
+@@ -906,6 +922,16 @@
+         groupInterjects.set(gid, arr)
+       }
+       const gp = await groupPrompt(p.chat, p.mode)
++      // 没触发回复的图片也属于这段群聊，稍后被叫到时不能只交给模型「[图片]」文字。
++      for (const message of [...gp.messages].reverse()) {
++        if (p.images.length >= 4) break
++        if (p.images.some(image => image.name?.startsWith(`qq-${message.mid}-`))) continue
++        if (!message.images?.length && !message.stickers?.length && !message.replyId) continue
++        const imgs = await imagesOf({ ...p.chat, ...message })
++        for (const img of imgs.slice(0, 4 - p.images.length)) {
++          p.images.push({ type: 'image', data: img.data, mediaType: img.mediaType, name: `qq-${message.mid}-${p.images.length + 1}` })
++        }
++      }
+       if (gp.speakers.length) lastSpeaker.set(chatId, [...p.senders].pop() || gp.speakers.at(-1))
+       content = [{ type: 'text', text: gp.text }, ...p.images]
+       p.query = gp.query
+@@ -913,7 +939,6 @@
+     } else {
+       content = [{ type: 'text', text: p.texts.join('\n') }, ...p.images]
+     }
+-    busy.set(chatId, Date.now())
+     try {
+       const [first, ...rest] = [...p.senders]
+       // 私聊：检索记忆时去掉「【私聊】某某(QQ)：」这个头
