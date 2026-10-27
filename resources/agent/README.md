@@ -30,7 +30,11 @@
 
 图片直接交给 DeepSeek Flash 识别，没有额外的 GPT 识图服务。语音依赖社区 TTS/ASR 的可用性；原版内置语音安装器和本机语音回退偏向 Windows，本次 Linux 部署未配置语音和翻唱服务。
 
-生图使用社区内置的 `qq_draw_image`：在社区面板“生图”页配置 OpenAI 兼容服务地址、模型和 Key，开启后按描述生成图片并发送到当前聊天。凭据保存在被 Git 忽略的社区配置中，聊天模型仍可使用 DeepSeek。管理员权限使用原生 `imageGen.ownerOnly` 设置；[发送结果补丁](community/image-send-result.patch)确保 QQ 发送失败时不误报成功。
+生图使用社区内置的 `qq_draw_image`：在社区面板“生图”页选择接口类型，配置服务地址、模型和 Key，开启后按描述生成图片并发送到当前聊天。Gemini 地址使用 `/v1beta` 前缀，OpenAI 兼容服务使用 `/v1` 前缀。凭据保存在被 Git 忽略的社区配置中，聊天模型仍可使用 DeepSeek。管理员权限使用原生 `imageGen.ownerOnly` 设置；[发送结果补丁](community/image-send-result.patch)确保 QQ 发送失败时不误报成功。
+
+[多服务生图补丁](community/image-backend-fallback.patch)支持 Gemini 原生 `generateContent` 和 OpenAI 兼容生图接口。`imageGen` 是首选，`imageGen.fallbacks` 中的服务按数组顺序备用；当前顺序为 Gemini Pro Image、Gemini Flash Image、Grok Imagine。网络错误、超时、未返回有效图片时切换，成功立即停止；明确的内容拒绝不会触发绕过重试。全部失败时只把失败事实交给大肥鱼，由当前人格自然回应，技术错误记入后台日志。面板不回传任何首选或备用服务的完整 Key，普通保存会保留凭据。
+
+[辅助识图扩展](vision-assist/index.mjs)给大肥鱼提供 `qq_inspect_image`。收到图片但拿不准细节、文字或动漫角色时，先请 Gemini 检查；失败或仍不确定时再请 Grok 核对，再由大肥鱼组织最终回复。复用生图服务配置的凭据，辅助模型默认为 `gemini-3.8-flash-high` 和 `grok-4.7`，可在社区扩展设置中调整；聊天主模型仍为 DeepSeek。图片缓存按聊天隔离，只用于近期追问；没有附件不会调用辅助模型，也不保证能辨认每一个角色。
 
 群聊和允许的私聊通过原生扩展 [联网找表情包](web-stickers/index.mjs) 获得搜索能力，不需要额外 API Key。例如“找一张委屈猫猫的表情包”：先搜索 Bing 图片，把候选图片交给模型看，再选择发送并保存到社区表情库。当前使用搜索引擎的预览图，动图可能变为静态；搜索无结果或发送失败时如实反馈。此扩展只下载搜索预览，不给群聊开放服务器文件、Shell 或通用网址访问；可以在社区面板的扩展页关闭。
 

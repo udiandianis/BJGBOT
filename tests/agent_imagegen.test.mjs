@@ -14,7 +14,7 @@ function host({authorized=true,sent={message_id:1},enabled=true}={}) {
   const config={imageGen:{enabled,baseUrl:'https://example.invalid/v1',model:'test-image',ownerOnly:true,size:'1024x1024',stylePrompt:''}}
   globalThis.fetch=async()=>{
     calls++
-    return new Response(JSON.stringify({data:[{b64_json:Buffer.from('image bytes').toString('base64')}]}),{headers:{'content-type':'application/json'}})
+    return new Response(JSON.stringify({data:[{b64_json:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nGQAAAAASUVORK5CYII='}]}),{headers:{'content-type':'application/json'}})
   }
   module.setup({config:()=>config,log:{info(){}},lazy:()=>({addEvent:e=>memories.push(e)}),
     core:{local:{active:()=>false},hub:{turnSendersAllOwner:()=>authorized,

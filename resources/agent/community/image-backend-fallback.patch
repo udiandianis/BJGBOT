@@ -1,0 +1,186 @@
+--- a/src/features/imagegen.js
++++ b/src/features/imagegen.js
+@@ -1,40 +1,66 @@
+-// 生图：兼容 OpenAI /v1/images/generations 的服务（硅基流动、通义万相兼容层、本地 ComfyUI / SD WebUI 的 OpenAI 代理……）。
+-// 地址和密钥由主人在面板里填；生成结果以 base64 交给 QQ 发出。
+-
++// 社区生图工具：按配置顺序尝试 Gemini 或 OpenAI 兼容服务。
+ import { fetchImage } from '../core/net.js'
++import { mimeOf, imageSize } from '../chat/inbound.js'
+ 
+ export function createImageGen({ getConfig, log, local }) {
+-  async function generate(prompt) {
+-    const c = getConfig().imageGen
+-    // 本地接口接管：用用户自己电脑上的画图服务
+-    if (local?.active('image')) {
+-      const { toImageBuffer } = await import('../local/local.js')
+-      const t = Date.now()
+-      const buf = await toImageBuffer(await local.call('image', { prompt: [c.stylePrompt, prompt].filter(Boolean).join('，'), size: c.size }))
+-      log.info(`本地画好了一张图（${Math.round(buf.length / 1024)}KB，${Math.round((Date.now() - t) / 1000)}s）：${prompt.slice(0, 40)}`)
+-      return buf
+-    }
+-    if (!c.enabled) throw new Error('生图还没开启')
++  async function requestImage(c, prompt) {
+     const base = String(c.baseUrl || '').replace(/\/+$/, '')
+     if (!base || !c.model) throw new Error('还没填生图服务地址或模型')
+-    const full = [c.stylePrompt, prompt].filter(Boolean).join('，')
+     const headers = { 'content-type': 'application/json' }
+     if (c.apiKey) headers.authorization = `Bearer ${c.apiKey}`
+-    const t = Date.now()
+-    const r = await fetch(`${base}/images/generations`, {
+-      method: 'POST',
+-      headers,
+-      body: JSON.stringify({ model: c.model, prompt: full, size: c.size, n: 1, response_format: 'b64_json', image_size: c.size }),
+-      signal: AbortSignal.timeout(180000),
+-    })
++    const gemini = c.provider === 'gemini'
++    const ratios = { '1024x1024': '1:1', '512x512': '1:1', '768x1024': '3:4', '1024x768': '4:3',
++      '1792x1024': '16:9', '1024x1792': '9:16', '1536x1024': '3:2', '1024x1536': '2:3' }
++    const body = gemini ? {
++      contents: [{ role: 'user', parts: [{ text: prompt }] }],
++      generationConfig: { responseModalities: ['TEXT', 'IMAGE'],
++        imageConfig: { aspectRatio: ratios[c.size] || '1:1', imageSize: '1K' } },
++    } : { model: c.model, prompt, size: c.size, n: 1, response_format: 'b64_json', image_size: c.size }
++    const url = gemini ? `${base}/models/${encodeURIComponent(c.model)}:generateContent` : `${base}/images/generations`
++    const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body),
++      signal: AbortSignal.timeout(Number(c.timeoutMs) || 60000) })
+     const j = await r.json().catch(() => ({}))
+-    if (!r.ok) throw new Error(j?.error?.message || j?.message || `HTTP ${r.status}`)
+-    const item = (j.data || j.images || [])[0] || {}
++    const blocked = j.promptFeedback?.blockReason || (j.candidates || []).some(x =>
++      ['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'IMAGE_SAFETY'].includes(x.finishReason))
++      || j.error?.code === 'content_policy_violation' || j.error?.type === 'content_policy_violation'
++    if (blocked) {
++      const error = new Error('这次请求没有生成可发送的图片')
++      error.refused = true
++      throw error
++    }
++    if (!r.ok) throw new Error(j.error?.message || j.message || `HTTP ${r.status}`)
++    const parts = (j.candidates || []).flatMap(x => x.content?.parts || [])
++    const image = parts.filter(x => !x.thought).map(x => x.inlineData || x.inline_data)
++      .find(x => x && String(x.mimeType || x.mime_type || '').startsWith('image/'))
++    const item = gemini ? (image ? { b64_json: image.data } : {}) : (j.data || j.images || [])[0] || {}
+     let buf
+     if (item.b64_json) buf = Buffer.from(item.b64_json, 'base64')
+     else if (item.url) buf = await fetchImage(item.url, { maxBytes: 20 * 1024 * 1024, allowLocal: false })
+     else throw new Error('生图服务没有返回图片')
+-    log.info(`画好了一张图（${Math.round(buf.length / 1024)}KB，${Math.round((Date.now() - t) / 1000)}s）：${prompt.slice(0, 40)}`)
++    const size = imageSize(buf)
++    if (!mimeOf(buf).startsWith('image/') || !size.width || !size.height) throw new Error('生图服务返回的图片无效')
+     return buf
++  }
++
++  async function generate(prompt) {
++    const c = getConfig().imageGen
++    if (local?.active('image')) {
++      const { toImageBuffer } = await import('../local/local.js')
++      return toImageBuffer(await local.call('image', { prompt: [c.stylePrompt, prompt].filter(Boolean).join('，'), size: c.size }))
++    }
++    if (!c.enabled) throw new Error('生图还没开启')
++    const full = [c.stylePrompt, prompt].filter(Boolean).join('，')
++    for (const backend of [c, ...(c.fallbacks || [])]) {
++      try {
++        const buf = await requestImage({ ...c, ...backend }, full)
++        log.info(`生图完成：${backend.model}（${Math.round(buf.length / 1024)}KB）`)
++        return buf
++      } catch (error) {
++        log.warn(`生图服务 ${backend.model || '未配置'} 失败：`, error.message)
++        if (error.refused) throw error
++      }
++    }
++    // 工具结果交回聊天模型，由她按当前人设回复；这里不直接发送固定失败消息。
++    throw new Error('这次没有生成可发送的图片，也没有发出图片')
+   }
+   return { generate, enabled: () => Boolean(local?.active('image') || (getConfig().imageGen.enabled && getConfig().imageGen.baseUrl && getConfig().imageGen.model)) }
+--- a/src/core/config.js
++++ b/src/core/config.js
+@@ -35,4 +35,5 @@
+     model: '',
+     size: '1024x1024',
++    fallbacks: [],
+     stylePrompt: '', // 每次生图自动加在前面的风格描述
+     ownerOnly: true, // 只有管理员能让她画
+@@ -250,4 +251,5 @@
+   c.voice.cosyvoice.sampleRate = num(c.voice.cosyvoice.sampleRate, 22050, 8000, 48000)
+   if (!['sft', 'instruct'].includes(c.voice.cosyvoice.mode)) c.voice.cosyvoice.mode = 'sft'
++  c.imageGen.fallbacks = Array.isArray(c.imageGen.fallbacks) ? c.imageGen.fallbacks.filter(isObj) : []
+   c.imageGen.enabled = bool(c.imageGen.enabled, false)
+   c.imageGen.ownerOnly = bool(c.imageGen.ownerOnly, true)
+@@ -285,9 +287,10 @@
+ const extraSecrets = new Map()
+ export function registerSecretField(path) { extraSecrets.set(path.join('\u0000'), path) }
+-const allSecrets = () => [...SECRETS, ...extraSecrets.values()]
++const allSecrets = (cfg) => [...SECRETS, ...extraSecrets.values(),
++  ...(cfg?.imageGen?.fallbacks || []).map((_, i) => ['imageGen', 'fallbacks', String(i), 'apiKey'])]
+ const parentOf = (obj, path, create) => {
+   let cur = obj
+   for (const k of path.slice(0, -1)) {
+-    if (!isObj(cur[k])) { if (!create) return null; cur[k] = {} }
++    if (!isObj(cur[k]) && !Array.isArray(cur[k])) { if (!create) return null; cur[k] = {} }
+     cur = cur[k]
+   }
+@@ -354,5 +357,5 @@
+   const c = structuredClone(cfg)
+   for (const [g, k] of HINTED) c[g][`${k}Hint`] = c[g][k] ? '…' + String(c[g][k]).slice(-4) : ''
+-  for (const path of allSecrets()) {
++  for (const path of allSecrets(c)) {
+     const p = parentOf(c, path, false)
+     if (!p) continue
+@@ -367,5 +370,5 @@
+ export function mergeFromPanel(current, incoming) {
+   const next = deepMerge(current, incoming || {})
+-  for (const path of allSecrets()) {
++  for (const path of allSecrets(next)) {
+     const v = getAt(incoming || {}, path)
+     const p = parentOf(next, path, v !== undefined)
+@@ -373,5 +376,12 @@
+     const k = path.at(-1)
+     if (v === null) p[k] = '' // 明确传 null = 清空
+-    else if (v === undefined || v === '') p[k] = getAt(current, path) ?? ''
++    else if (v === undefined || v === '') {
++      if (path[0] === 'imageGen' && path[1] === 'fallbacks') {
++        const target = next.imageGen.fallbacks[Number(path[2])]
++        const saved = (current.imageGen.fallbacks || []).find(x =>
++          x.provider === target.provider && x.baseUrl === target.baseUrl && x.model === target.model)
++        p[k] = saved?.apiKey || ''
++      } else p[k] = getAt(current, path) ?? ''
++    }
+     delete p[`${k}Set`]
+     delete p[`${k}Hint`]
+--- a/src/host.js
++++ b/src/host.js
+@@ -49,5 +49,5 @@
+   let bridge = null
+   const getConfig = () => cfg
+-  const secrets = () => { for (const k of ['webuiPassword', 'httpToken', 'wsToken']) registerSecret(cfg.snowluma[k]); registerSecret(cfg.imageGen.apiKey); registerSecret(cfg.bridge.token) }
++  const secrets = () => { for (const k of ['webuiPassword', 'httpToken', 'wsToken']) registerSecret(cfg.snowluma[k]); registerSecret(cfg.imageGen.apiKey); for (const backend of cfg.imageGen.fallbacks || []) registerSecret(backend.apiKey); registerSecret(cfg.bridge.token) }
+   const setConfig = (next) => {
+     const before = cfg
+--- a/src/modules/imagegen/index.js
++++ b/src/modules/imagegen/index.js
+@@ -17,5 +17,5 @@
+     api.tool(({ chat, sessionId }) => (gen.enabled() && chat.kind !== 'system' ? defineTool({
+       name: 'qq_draw_image',
+-      description: '画一张图并发到当前 QQ 聊天里。prompt 用中文或英文详细描述画面（主体、动作、场景、风格）。画好会直接发出去，回复里简单说一句就行。',
++      description: '画一张图并发到当前 QQ 聊天里。prompt 用中文或英文详细描述画面（主体、动作、场景、风格）。画好会直接发出去，回复里简单说一句就行。失败结果由你按当前人设自然说明，不照抄技术错误，不编造已经画好或已发送。',
+       properties: { prompt: str('画面描述') },
+       required: ['prompt'],
+--- a/client/client.js
++++ b/client/client.js
+@@ -1638,11 +1638,13 @@
+       const c = draft.imageGen
+       return h('div', { className: 'ab-grid' },
+-        h(Card, { title: '让她画图', right: f.sw('imageGen.enabled'), desc: '接上一个生图服务后，聊天里让她「画一张……」，她会画好直接发出来。支持兼容 OpenAI 生图接口（/v1/images/generations）的服务：硅基流动、各家大模型平台，或本地 ComfyUI / SD WebUI 的 OpenAI 兼容代理。想直接用本地的 SD WebUI / ComfyUI API？去「本地接口」页接「生图」，这里可以不填。' },
+-          h(Row, { label: '服务地址', hint: '一般以 /v1 结尾' }, f.text('imageGen.baseUrl', { size: 'wide', placeholder: 'https://api.siliconflow.cn/v1' })),
++        h(Card, { title: '让她画图', right: f.sw('imageGen.enabled'), desc: '接上一个生图服务后，聊天里让她「画一张……」，她会画好直接发出来。支持 OpenAI 兼容生图服务或 Gemini 原生生图接口，配置了备用模型时会按顺序切换。想直接用本地的 SD WebUI / ComfyUI API？去「本地接口」页接「生图」，这里可以不填。' },
++          h(Row, { label: '接口类型' }, f.select('imageGen.provider', [{ value: 'openai', label: 'OpenAI 兼容' }, { value: 'gemini', label: 'Gemini 原生' }])),
++          h(Row, { label: '服务地址', hint: c.provider === 'gemini' ? '以 /v1beta 结尾' : '一般以 /v1 结尾' }, f.text('imageGen.baseUrl', { size: 'wide', placeholder: 'https://api.siliconflow.cn/v1' })),
+           h(Row, { label: 'API Key', hint: '只存在本机，不会显示出来' }, f.text('imageGen.apiKey', { type: 'password', placeholder: c.apiKeySet ? '已保存（不改就留空）' : '没有就留空' })),
+           h(Row, { label: '模型' }, f.text('imageGen.model', { size: 'wide', placeholder: '例如 Kwai-Kolors/Kolors' })),
+           h(Row, { label: '图片尺寸' }, f.select('imageGen.size', [{ value: '1024x1024', label: '1024 × 1024', desc: '方图' }, { value: '768x1024', label: '768 × 1024', desc: '竖图' }, { value: '1024x768', label: '1024 × 768', desc: '横图' }, { value: '512x512', label: '512 × 512', desc: '小图，更快' }], { width: 200 })),
+           h(Row, { label: '固定风格', hint: '每次画都会加在描述前面' }, f.text('imageGen.stylePrompt', { size: 'wide', placeholder: '例如：日系二次元，柔和光线，蓝白配色' })),
+-          h(Row, { label: '只给主人画', hint: '关掉后群友也能让她画（会花你的额度）' }, f.sw('imageGen.ownerOnly')),
++          c.fallbacks?.length ? h('div', { className: 'ab-note' }, '优先顺序：' + [c.model, ...c.fallbacks.map(x => x.model)].join(' → ')) : null,
++          h(Row, { label: '仅管理员可画图', hint: '关掉后群友也能让她画（会花你的额度）' }, f.sw('imageGen.ownerOnly')),
+           !c.enabled ? h('div', { className: 'ab-note', style: { marginTop: 10 } }, '还没开启。填好地址和模型、打开右上角开关并保存后，她就会多一个「画图」能力。') : null,
+         ),

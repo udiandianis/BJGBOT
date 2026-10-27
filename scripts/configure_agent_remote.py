@@ -18,7 +18,7 @@ shutil.copy2(path, backup / path.name)
 
 # 固定社区版本的提示文字适配；权限校验代码不作修改，重复部署不会重复应用。
 apply_args = ['git', 'apply', '--directory=.agent/aurabot']
-for patch_name in ('permission-only.patch', 'empty-message.patch', 'quoted-and-recent-images.patch', 'image-send-result.patch'):
+for patch_name in ('permission-only.patch', 'empty-message.patch', 'quoted-and-recent-images.patch', 'image-send-result.patch', 'image-backend-fallback.patch'):
     patch_bytes = (root / 'resources/agent/community' / patch_name).read_text(encoding='utf-8').encode()
     applied = subprocess.run([*apply_args, '--reverse', '--check'], input=patch_bytes,
                              cwd=root, capture_output=True).returncode == 0
@@ -60,6 +60,9 @@ shutil.copy2(root / 'resources/agent/bjgbot/index.mjs', module / 'index.mjs')
 web_stickers = data / 'modules/web-stickers'
 web_stickers.mkdir(parents=True, exist_ok=True)
 shutil.copy2(root / 'resources/agent/web-stickers/index.mjs', web_stickers / 'index.mjs')
+vision_assist = data / 'modules/vision-assist'
+vision_assist.mkdir(parents=True, exist_ok=True)
+shutil.copy2(root / 'resources/agent/vision-assist/index.mjs', vision_assist / 'index.mjs')
 profile = home / 'profiles/web/cordis.patch.yml'
 shutil.copy2(profile, backup / 'dsh-cordis.patch.yml')
 patch_path = home / 'bjgbot-model.patch.json'
