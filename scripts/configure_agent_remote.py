@@ -18,7 +18,7 @@ shutil.copy2(path, backup / path.name)
 
 # 固定社区版本的提示文字适配；权限校验代码不作修改，重复部署不会重复应用。
 apply_args = ['git', 'apply', '--directory=.agent/aurabot']
-for patch_name in ('permission-only.patch', 'empty-message.patch', 'quoted-and-recent-images.patch', 'image-send-result.patch', 'image-backend-fallback.patch'):
+for patch_name in ('permission-only.patch', 'empty-message.patch', 'quoted-and-recent-images.patch', 'image-send-result.patch', 'image-backend-fallback.patch', 'group-interjection.patch'):
     patch_bytes = (root / 'resources/agent/community' / patch_name).read_text(encoding='utf-8').encode()
     applied = subprocess.run([*apply_args, '--reverse', '--check'], input=patch_bytes,
                              cwd=root, capture_output=True).returncode == 0
