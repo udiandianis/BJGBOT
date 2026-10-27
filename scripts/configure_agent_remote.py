@@ -57,6 +57,9 @@ aurabot_path.chmod(0o600)
 module = data / 'modules/bjgbot'
 module.mkdir(parents=True, exist_ok=True)
 shutil.copy2(root / 'resources/agent/bjgbot/index.mjs', module / 'index.mjs')
+web_stickers = data / 'modules/web-stickers'
+web_stickers.mkdir(parents=True, exist_ok=True)
+shutil.copy2(root / 'resources/agent/web-stickers/index.mjs', web_stickers / 'index.mjs')
 profile = home / 'profiles/web/cordis.patch.yml'
 shutil.copy2(profile, backup / 'dsh-cordis.patch.yml')
 patch_path = home / 'bjgbot-model.patch.json'
