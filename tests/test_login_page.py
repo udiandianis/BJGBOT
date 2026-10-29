@@ -73,6 +73,23 @@ class LoginPageTests(unittest.TestCase):
         self.assertIn('HttpOnly', response.headers['Set-Cookie'])
         self.assertEqual(client.get('/status', base_url='http://localhost').status_code, 200)
 
+    def test_public_mode_does_not_require_password_but_disallows_restart(self):
+        settings = replace(self.settings, login_page={**self.settings.login_page, 'require_password': False,
+                                                     'secure_cookie': False, 'password_hash': ''})
+        client = create_login_app(settings, self.napcat).test_client()
+        page = client.get('/')
+        self.assertNotIn(b'type="password"', page.data)
+        self.assertEqual(client.get('/status').status_code, 200)
+        self.assertFalse(client.get('/status').json['can_refresh'])
+        image = client.get('/qrcode.png')
+        self.assertEqual(image.data, b'test-image')
+        image.close()
+        with patch('src.web.login.deepseek_balance', return_value={'available': True, 'balances': []}):
+            self.assertEqual(client.get('/balance').status_code, 200)
+        with patch('src.web.login.subprocess.run') as restart:
+            self.assertEqual(client.post('/refresh').status_code, 403)
+        restart.assert_not_called()
+
     def test_fresh_qr_can_be_downloaded_and_is_not_cached(self):
         self.login()
         self.assertTrue(self.request('/status').json['qr_available'])

@@ -22,7 +22,8 @@ def create_login_app(settings=None, client=None):
     """创建仅提供密码登录、状态和二维码的独立应用。"""
     settings = settings or get_settings()
     config = settings.login_page
-    if not config.get('password_hash') or len(config.get('session_secret', '')) < 32 or not config.get('qr_path'):
+    require_password = config.get('require_password', True)
+    if (require_password and not config.get('password_hash')) or len(config.get('session_secret', '')) < 32 or not config.get('qr_path'):
         raise ValueError('请在 login_page 中配置密码哈希、会话密钥和二维码路径')
     client = client or NapCatClient(replace(settings, request_timeout=3))
     app = Flask(__name__, static_url_path='/assets')
@@ -46,10 +47,12 @@ def create_login_app(settings=None, client=None):
 
     @app.before_request
     def verify_access():
-        """所有状态和图片接口都要求登录；修改操作验证会话令牌。"""
+        """按配置验证访问；公开页面只读，禁止远程重启 QQ。"""
+        if not require_password and request.method == 'POST':
+            return jsonify(error='公开页面仅供查看，不允许重启或修改登录状态'), 403
         if request.endpoint != 'static':
             session.setdefault('csrf', secrets.token_urlsafe(32))
-        if request.endpoint not in ('index', 'static') and not session.get('authenticated'):
+        if require_password and request.endpoint not in ('index', 'static') and not session.get('authenticated'):
             return jsonify(error='请先输入访问密码'), 401
         if request.method == 'POST':
             token = request.headers.get('X-CSRF-Token') or request.form.get('csrf', '')
@@ -84,8 +87,8 @@ def create_login_app(settings=None, client=None):
                 else:
                     attempts.append(now)
                     error, status = '访问密码不正确，请重试', 401
-        return render_template('login.html', authenticated=session.get('authenticated', False),
-                               csrf=session['csrf'], error=error), status
+        return render_template('login.html', authenticated=not require_password or session.get('authenticated', False),
+                               require_password=require_password, csrf=session['csrf'], error=error), status
 
     @app.get('/status')
     def status():
@@ -96,7 +99,8 @@ def create_login_app(settings=None, client=None):
         except FileNotFoundError:
             modified = 0
         available = not active and modified >= last_refresh and 0 <= time.time() - modified < 120
-        return jsonify(online=active, qr_available=available, updated_at=int(modified) if available else None)
+        return jsonify(online=active, qr_available=available, updated_at=int(modified) if available else None,
+                       can_refresh=require_password)
 
     @app.get('/qrcode.png')
     def qrcode():

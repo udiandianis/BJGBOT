@@ -140,7 +140,7 @@ SSH 断开后需要继续运行时，可先用 `bash scripts/start.sh` 完成依
 
 ## 手机登录页
 
-独立入口只提供 QQ 在线状态、登录二维码和 DS 剩余余额，不开放 OneBot、消息上报或 NapCat 管理后台。页面要求访问密码，登录有效期为七天，二维码禁止缓存并在两分钟后隐藏。离线时可主动获取新二维码，登录后保存图片，再用手机 QQ 从相册识别。
+独立入口只提供 QQ 在线状态、登录二维码和 DS 剩余余额，不开放 OneBot、消息上报或 NapCat 管理后台。默认要求访问密码，登录有效期为七天，二维码禁止缓存并在两分钟后隐藏。密码模式下离线时可主动获取新二维码，保存图片后用手机 QQ 从相册识别。设置 `require_password: false` 可直接访问公开只读页面；此时二维码和余额不再私密，主动重启接口关闭，自动掉线恢复仍然运行。
 
 `config/bot_settings.json` 的 `login_page` 保存 `password_hash`（Werkzeug 密码哈希）、`session_secret`（至少 32 字符的随机密钥）和 `qr_path`（NapCat 的 `cache/qrcode.png` 绝对路径）。`host`、`port` 控制监听地址和端口，`secure_cookie` 控制是否只通过 HTTPS 发送登录 Cookie。这些值只保存在被忽略的真实配置中。未配置该部分不影响机器人运行。
 

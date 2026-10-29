@@ -53,6 +53,7 @@
     "qr_path": "",
     "host": "127.0.0.1",
     "port": 5011,
-    "secure_cookie": true
+    "secure_cookie": true,
+    "require_password": true
   }
 }
