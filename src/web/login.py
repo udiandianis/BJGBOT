@@ -14,6 +14,7 @@ from werkzeug.security import check_password_hash
 from ..adapters.napcat import NapCatClient
 from ..settings import get_settings
 from ..providers.ai import deepseek_balance
+from ..storage import balances
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ def create_login_app(settings=None, client=None):
     require_password = config.get('require_password', True)
     if (require_password and not config.get('password_hash')) or len(config.get('session_secret', '')) < 32 or not config.get('qr_path'):
         raise ValueError('请在 login_page 中配置密码哈希、会话密钥和二维码路径')
+    balances.init_storage()
     client = client or NapCatClient(replace(settings, request_timeout=3))
     app = Flask(__name__, static_url_path='/assets')
     app.config.update(SECRET_KEY=config['session_secret'], SESSION_COOKIE_NAME='bot_login',
@@ -38,6 +40,8 @@ def create_login_app(settings=None, client=None):
     balance_lock = threading.Lock()
     status_cache = {'checked_at': None, 'online': False}
     status_lock = threading.Lock()
+    history_cache = {}
+    history_lock = threading.Lock()
 
     def online():
         """合并三秒内的重复检查，避免多个手机页面同时请求 QQ。"""
@@ -156,10 +160,29 @@ def create_login_app(settings=None, client=None):
                 return jsonify(**balance_cache['data'], updated_at=balance_cache['updated_at'])
             try:
                 data = deepseek_balance(settings)
+                balances.record_balance(settings, data)
+                with history_lock:
+                    history_cache.clear()
             except Exception:
                 return jsonify(error='DS 余额暂时无法查询，请稍后重试'), 503
             balance_cache.update(updated_at=int(time.time()), data=data)
             return jsonify(**data, updated_at=balance_cache['updated_at'])
+
+    @app.get('/balance-history')
+    def history():
+        """查询有限时间范围的余额变化，沿用页面访问权限。"""
+        days = request.args.get('days', '7')
+        currency = request.args.get('currency', 'CNY')
+        if days not in ('1', '7', '30') or currency not in ('CNY', 'USD'):
+            return jsonify(error='请选择今日、近 7 天或近 30 天，以及有效币种'), 400
+        with history_lock:
+            key = (days, currency)
+            cached = history_cache.get(key)
+            if cached and time.monotonic() - cached['checked_at'] < 30:
+                return jsonify(cached['data'])
+            data = balances.balance_history(settings, int(days), currency)
+            history_cache[key] = {'checked_at': time.monotonic(), 'data': data}
+            return jsonify(data)
 
     return app
 

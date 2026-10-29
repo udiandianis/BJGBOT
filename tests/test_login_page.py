@@ -11,6 +11,7 @@ from werkzeug.security import generate_password_hash
 
 from src.providers.ai import deepseek_balance
 from src.web.login import create_login_app
+from src.storage import users
 from tests.support import test_settings
 
 
@@ -23,6 +24,9 @@ class LoginPageTests(unittest.TestCase):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.qr = Path(directory.name) / 'qrcode.png'
+        database = patch.object(users, 'DB_PATH', Path(directory.name) / 'bot.db')
+        database.start()
+        self.addCleanup(database.stop)
         self.qr.write_bytes(b'test-image')
         self.settings = replace(test_settings(), login_page={'password_hash': self.password_hash,
             'session_secret': 'test-secret-' * 5, 'qr_path': str(self.qr)})
@@ -41,7 +45,7 @@ class LoginPageTests(unittest.TestCase):
         return self.request(method='POST', data={'csrf': self.csrf(), 'password': 'test-password'})
 
     def test_private_endpoints_require_login_and_do_not_query_providers(self):
-        for path in ('/status', '/qrcode.png', '/balance'):
+        for path in ('/status', '/qrcode.png', '/balance', '/balance-history'):
             response = self.request(path)
             self.assertEqual(response.status_code, 401)
             self.assertNotIn(b'test-image', response.data)
@@ -142,6 +146,19 @@ class LoginPageTests(unittest.TestCase):
             response = self.request('/balance')
         self.assertEqual(response.status_code, 503)
         self.assertNotIn('balances', response.json)
+
+    def test_balance_records_history_and_limits_query_range(self):
+        self.login()
+        result = {'available': True, 'balances': [{'currency': 'CNY', 'total_balance': '12.34',
+                  'granted_balance': '0.00', 'topped_up_balance': '12.34'}]}
+        with patch('src.web.login.deepseek_balance', return_value=result):
+            self.assertEqual(self.request('/balance').status_code, 200)
+        history = self.request('/balance-history?days=7&currency=CNY')
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(history.json['samples'], 1)
+        self.assertEqual(history.json['points'][0]['balance'], '12.34')
+        self.assertEqual(self.request('/balance-history?days=999').status_code, 400)
+        self.assertEqual(self.request('/balance-history?currency=invalid').status_code, 400)
 
     def test_status_requests_share_short_cache_and_then_refresh(self):
         self.login()

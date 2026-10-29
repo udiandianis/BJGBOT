@@ -1,0 +1,10 @@
+[Unit]
+Description=Sample DeepSeek balance every five minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=5min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

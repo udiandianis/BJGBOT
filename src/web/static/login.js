@@ -64,6 +64,7 @@ async function updateBalance() {
     document.querySelector('#balance-amount').textContent = result.balances.map(money).join(' / ');
     document.querySelector('#balance-detail').textContent = result.balances.map(row => `赠金 ${row.granted_balance} · 充值余额 ${row.topped_up_balance} ${row.currency}`).join('\n') + (result.available ? '' : '\n当前账号无可用余额');
     document.querySelector('#balance-updated').textContent = `更新于 ${new Date(result.updated_at * 1000).toLocaleTimeString('zh-CN', {hour12: false})}`;
+    document.dispatchEvent(new CustomEvent('balance-updated', {detail: result.balances.map(row => row.currency)}));
   } catch (error) {
     document.querySelector('#balance-amount').textContent = '暂时无法查询';
     document.querySelector('#balance-detail').textContent = error.message;

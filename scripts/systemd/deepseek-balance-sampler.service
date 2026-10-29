@@ -1,0 +1,12 @@
+[Unit]
+Description=Sample DeepSeek account balance
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/BJGBOT
+ExecStart=/opt/BJGBOT/.venv-linux/bin/python -B -m scripts.sample_deepseek_balance
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=20
+UMask=0077
