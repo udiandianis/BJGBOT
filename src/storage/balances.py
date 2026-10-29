@@ -19,6 +19,7 @@ def init_storage():
             granted_balance TEXT NOT NULL, topped_up_balance TEXT NOT NULL,
             PRIMARY KEY (series, currency, bucket))''')
         connection.execute('CREATE INDEX IF NOT EXISTS balance_samples_time ON deepseek_balance_samples(sampled_at)')
+        connection.execute('CREATE INDEX IF NOT EXISTS balance_samples_series_time ON deepseek_balance_samples(series, currency, sampled_at)')
 
 
 def account_series(settings):
