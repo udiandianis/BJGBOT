@@ -43,23 +43,16 @@
       <small id="updated">状态每 5 秒自动更新</small>
     </section>
     <section class="panel balance-panel" aria-labelledby="balance-heading">
-      <div class="balance-header"><h2 id="balance-heading">DeepSeek 剩余余额</h2><button id="balance-refresh" class="text-button" type="button">刷新</button></div>
+      <div class="balance-header"><h2 id="balance-heading">DeepSeek 余额</h2><button id="balance-refresh" class="text-button" type="button">刷新</button></div>
       <div id="balance-amount" class="balance-amount" role="status">正在查询…</div>
       <p id="balance-detail" class="balance-detail"></p>
       <small id="balance-updated">余额每分钟自动更新</small>
-    </section>
-    <section class="panel history-panel" aria-labelledby="history-heading">
-      <div class="balance-header"><h2 id="history-heading">余额变化</h2>
+      <div class="history-controls">
         <select id="history-currency" aria-label="余额统计币种" hidden><option value="CNY">人民币</option></select>
       </div>
       <div class="history-ranges" role="group" aria-label="统计时间范围">
-        <button type="button" data-days="1" aria-pressed="false">今日</button>
         <button type="button" data-days="7" aria-pressed="true">近 7 天</button>
         <button type="button" data-days="30" aria-pressed="false">近 30 天</button>
-      </div>
-      <div class="history-summary">
-        <div><span>余额减少 · 估算</span><strong id="history-decrease">—</strong></div>
-        <div><span>余额增加</span><strong id="history-increase">—</strong></div>
       </div>
       <svg id="history-chart" viewBox="0 0 320 180" role="img" aria-label="DeepSeek 余额变化趋势" hidden></svg>
       <p id="history-caption" class="history-caption" role="status">正在读取记录…</p>
@@ -69,14 +62,7 @@
           <tbody id="history-daily"></tbody>
         </table>
       </div>
-      <details class="history-changes"><summary>最近余额变动</summary>
-        <div class="history-table-wrap"><table class="history-table"><caption class="sr-only">最近二十次余额变动</caption>
-          <thead><tr><th scope="col">时间</th><th scope="col">变动</th><th scope="col">余额</th></tr></thead>
-          <tbody id="history-changes"></tbody>
-        </table></div>
-      </details>
-      <small id="history-sampling"></small>
-      <small>每 5 分钟采样，按差额估算，非官方账单；赠金到期或调账也可能影响余额。</small>
+      <small>每天一个节点，显示当日最新余额；增减按余额差额估算。</small>
     </section>
     {% if require_password %}<form method="post" action="/logout" class="logout">
       <input type="hidden" name="csrf" value="{{ csrf }}">

@@ -9,7 +9,6 @@ let chartCoordinates = [];
 
 const historyNumber = value => new Intl.NumberFormat('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 6}).format(Number(value));
 const historyMoney = value => `${historyCurrency.value === 'CNY' ? '¥' : '$'}${historyNumber(value)}`;
-const historyTime = value => new Date(value * 1000).toLocaleString('zh-CN', {timeZone: 'Asia/Shanghai', hour12: false});
 
 function svgElement(tag, attributes, text) {
   const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -24,7 +23,7 @@ function selectChartPoint(index) {
   const marker = historyChart.querySelector('#history-marker');
   marker.setAttribute('cx', chartCoordinates[index][0]);
   marker.setAttribute('cy', chartCoordinates[index][1]);
-  historyCaption.textContent = `${historyTime(point.time)} · ${historyMoney(point.balance)}`;
+  historyCaption.textContent = `${point.date} · ${historyMoney(point.balance)}`;
 }
 
 function drawHistory(points) {
@@ -37,7 +36,7 @@ function drawHistory(points) {
   }
   const values = points.map(point => Number(point.balance));
   const minimum = Math.min(...values), maximum = Math.max(...values);
-  historyChart.setAttribute('aria-label', `${points.length} 次余额采样，最高 ${historyMoney(maximum)}，最低 ${historyMoney(minimum)}`);
+  historyChart.setAttribute('aria-label', `${points.length} 天余额记录，最高 ${historyMoney(maximum)}，最低 ${historyMoney(minimum)}`);
   const padding = Math.max((maximum - minimum) * 0.12, 0.005);
   const low = minimum - padding, high = maximum + padding;
   const first = points[0].time, last = points[points.length - 1].time;
@@ -92,17 +91,10 @@ async function loadHistory() {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || '暂时无法读取历史记录');
     if (currency !== historyCurrency.value || days !== historyDays) return;
-    document.querySelector('#history-decrease').textContent = historyMoney(result.decrease);
-    document.querySelector('#history-increase').textContent = historyMoney(result.increase);
     drawHistory(result.points);
     historyRows(document.querySelector('#history-daily'), result.daily.map(row => [
       row.date.slice(5), historyNumber(row.decrease), historyNumber(row.increase), historyNumber(row.ending_balance)
     ]), 4, '暂无采样记录');
-    historyRows(document.querySelector('#history-changes'), result.changes.map(row => [
-      historyTime(row.time).replace(/^\d{4}\//, ''), `${Number(row.change) > 0 ? '+' : ''}${historyNumber(row.change)}`, historyNumber(row.balance)
-    ]), 3, '当前范围内暂无余额变化');
-    document.querySelector('#history-sampling').textContent = result.samples
-      ? `共 ${result.samples} 次采样 · 最近 ${historyTime(result.last_sample_at)}` : '从启用时开始记录，历史会逐步积累。';
   } catch (error) { historyCaption.textContent = error.message; }
   finally {
     historyLoading = false;

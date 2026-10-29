@@ -156,7 +156,7 @@ SSH 断开后需要继续运行时，可先用 `bash scripts/start.sh` 完成依
 
 DS 余额通过云端密钥查询 [DeepSeek 余额接口](https://api-docs.deepseek.com/zh-cn/api/get-user-balance/)，每分钟刷新，显示总余额、赠金和充值余额；查询失败单独提示，不显示为零。页面和浏览器均不接收 API 密钥。
 
-余额历史保存在 SQLite 的 `deepseek_balance_samples` 表，每五分钟每币种最多一条，保留 180 天，金额使用十进制文本存储。安装并启用 `scripts/systemd/deepseek-balance-sampler.service` 和 `.timer` 后，即使未打开页面也会采样；打开页面查询余额也会补充当前时间段的记录。页面提供今日、近 7 天、近 30 天曲线、按日汇总和最近变动。
+余额历史保存在 SQLite 的 `deepseek_balance_samples` 表，每五分钟每币种最多一条，保留 180 天，金额使用十进制文本存储。安装并启用 `scripts/systemd/deepseek-balance-sampler.service` 和 `.timer` 后，即使未打开页面也会采样；打开页面查询余额也会补充当前时间段的记录。页面将当前余额、近 7 天或近 30 天曲线和每日增减表合并展示，曲线每天一个节点，使用当日最新余额。
 
 统计的是账号总余额的采样变化，包含其他客户端的使用。减少金额是估算，不等同于精确 API 账单，赠金到期或调账也会改变余额；跨日差额按后一次采样归属日期。没有采样的时段不补造数据。更换 DS 密钥或服务地址后使用独立历史序列，防止不同账号混在一起。
 

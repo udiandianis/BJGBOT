@@ -58,8 +58,6 @@ def balance_history(settings, days=7, currency='CNY', now=None):
             (series, currency, start)).fetchone()
     previous = Decimal(baseline['total_balance']) if baseline else None
     daily = {}
-    changes = []
-    points = []
     for record in records:
         amount = Decimal(record['total_balance'])
         day = datetime.fromtimestamp(record['sampled_at'], BEIJING_TIME).date().isoformat()
@@ -70,16 +68,16 @@ def balance_history(settings, days=7, currency='CNY', now=None):
         if delta is not None:
             bucket['decrease'] += max(-delta, Decimal(0))
             bucket['increase'] += max(delta, Decimal(0))
-            if delta:
-                changes.append({'time': record['sampled_at'], 'balance': format(amount, 'f'), 'change': format(delta, 'f')})
-        points.append({'time': record['sampled_at'], 'balance': format(amount, 'f')})
         previous = amount
     decrease = sum((row['decrease'] for row in daily.values()), Decimal(0))
     increase = sum((row['increase'] for row in daily.values()), Decimal(0))
     rows = [{**row, 'decrease': format(row['decrease'], 'f'), 'increase': format(row['increase'], 'f')}
             for row in reversed(list(daily.values()))]
+    points = [{'date': row['date'], 'balance': row['ending_balance'],
+               'time': int(datetime.fromisoformat(row['date']).replace(tzinfo=BEIJING_TIME).timestamp())}
+              for row in daily.values()]
     return {'currency': currency, 'days': days, 'points': points, 'daily': rows,
-            'changes': list(reversed(changes[-20:])), 'samples': len(records),
+            'samples': len(records),
             'decrease': format(decrease, 'f'), 'increase': format(increase, 'f'),
             'first_sample_at': records[0]['sampled_at'] if records else None,
             'last_sample_at': records[-1]['sampled_at'] if records else None}

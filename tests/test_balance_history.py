@@ -34,7 +34,9 @@ class BalanceHistoryTests(unittest.TestCase):
         balances.init_storage()
         result = self.history()
         self.assertEqual(result['samples'], 2)
-        self.assertEqual(result['points'][0]['balance'], '10.00')
+        self.assertEqual(len(result['points']), 1)
+        self.assertEqual(result['points'][0]['balance'], '9.98')
+        self.assertEqual(result['points'][0]['date'], '2026-10-30')
         self.assertEqual(result['decrease'], '0.02')
 
     def test_decimal_changes_and_balance_increase_are_separate(self):
@@ -45,7 +47,7 @@ class BalanceHistoryTests(unittest.TestCase):
         self.assertEqual(result['decrease'], '0.000002')
         self.assertEqual(result['increase'], '1.000002')
         self.assertEqual(result['daily'][0]['ending_balance'], '2.000001')
-        self.assertEqual(result['changes'][0]['change'], '1.000002')
+        self.assertEqual(result['points'][0]['balance'], '2.000001')
 
     def test_today_uses_beijing_midnight_and_previous_balance(self):
         midnight = int(datetime(2026, 10, 30, tzinfo=balances.BEIJING_TIME).timestamp())
@@ -55,6 +57,15 @@ class BalanceHistoryTests(unittest.TestCase):
         self.assertEqual(result['samples'], 1)
         self.assertEqual(result['daily'][0]['date'], '2026-10-30')
         self.assertEqual(result['decrease'], '0.10')
+
+    def test_chart_has_one_latest_balance_per_beijing_day(self):
+        self.record('10.00', self.start - 86400)
+        self.record('9.00', self.start)
+        self.record('8.50', self.start + 300)
+        result = self.history()
+        self.assertEqual([point['date'] for point in result['points']], ['2026-10-29', '2026-10-30'])
+        self.assertEqual([point['balance'] for point in result['points']], ['10.00', '8.50'])
+        self.assertEqual(result['daily'][0]['decrease'], '1.50')
 
     def test_missing_samples_are_empty_not_fabricated_and_accounts_are_isolated(self):
         self.assertEqual(self.history()['points'], [])
