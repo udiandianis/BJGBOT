@@ -143,6 +143,17 @@ class LoginPageTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertNotIn('balances', response.json)
 
+    def test_status_requests_share_short_cache_and_then_refresh(self):
+        self.login()
+        with patch('src.web.login.time.monotonic', return_value=100) as clock:
+            self.assertFalse(self.request('/status').json['online'])
+            self.napcat.call.return_value = {'online': True}
+            self.assertFalse(self.request('/status').json['online'])
+            self.napcat.call.assert_called_once_with('get_status')
+            clock.return_value = 104
+            self.assertTrue(self.request('/status').json['online'])
+        self.assertEqual(self.napcat.call.call_count, 2)
+
     def test_logout_does_not_logout_qq(self):
         self.login()
         self.request('/logout', method='POST', data={'csrf': self.csrf()})

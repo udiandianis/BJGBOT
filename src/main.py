@@ -7,6 +7,7 @@ app = create_app()
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
+    logging.getLogger('werkzeug').setLevel(logging.WARNING)
     settings = app.extensions['bot_settings']
     stop_event = threading.Event()
     refresh_thread = threading.Thread(target=run_daily_refresh,

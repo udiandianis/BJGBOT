@@ -36,14 +36,22 @@ def create_login_app(settings=None, client=None):
     last_refresh = 0
     balance_cache = {'updated_at': 0, 'data': None}
     balance_lock = threading.Lock()
+    status_cache = {'checked_at': None, 'online': False}
+    status_lock = threading.Lock()
 
     def online():
-        """状态接口不可用时仍允许通过二维码重新登录。"""
-        try:
-            status = client.call('get_status')
-            return isinstance(status, dict) and status.get('online') is True
-        except Exception:
-            return False
+        """合并三秒内的重复检查，避免多个手机页面同时请求 QQ。"""
+        with status_lock:
+            now = time.monotonic()
+            if status_cache['checked_at'] is not None and now - status_cache['checked_at'] < 3:
+                return status_cache['online']
+            try:
+                status = client.call('get_status')
+                active = isinstance(status, dict) and status.get('online') is True
+            except Exception:
+                active = False
+            status_cache.update(checked_at=now, online=active)
+            return active
 
     @app.before_request
     def verify_access():
@@ -158,6 +166,7 @@ def create_login_app(settings=None, client=None):
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
+    logging.getLogger('werkzeug').setLevel(logging.WARNING)
     settings = get_settings()
     create_login_app(settings).run(host=settings.login_page.get('host', '127.0.0.1'),
                                    port=settings.login_page.get('port', 5011))

@@ -579,9 +579,10 @@ class ProviderAndMediaTests(unittest.TestCase):
     def test_plain_text_and_existing_segments_are_preserved(self):
         client = NapCatClient(test_settings())
         for message in ('hello &amp; world', [{'type': 'text', 'data': {'text': 'hello'}}]):
-            with patch.object(client, 'call') as api:
+            with patch.object(client, 'call') as api, patch('src.adapters.napcat.TemporaryDirectory') as temporary:
                 client.send_group(7, message)
                 api.assert_called_once_with('send_group_msg', group_id=7, message=message)
+                temporary.assert_not_called()
 
     def test_luogu_cookie_sent_and_expiry_reported(self):
         settings = replace(test_settings(), luogu_cookies={'_uid': '123', '__client_id': 'test'})

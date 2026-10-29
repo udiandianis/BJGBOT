@@ -1,8 +1,11 @@
 import requests
+import threading
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import urlsplit
 from ..events import segments
+
+MEDIA_DOWNLOAD_SLOTS = threading.BoundedSemaphore(2)
 
 
 class NapCatError(RuntimeError):
@@ -31,21 +34,20 @@ class NapCatClient:
         """向指定群发送消息，返回 NapCat 接口结果。"""
         if isinstance(message, str) and '[CQ:' in message:
             message = segments(message)
-        with TemporaryDirectory(prefix='bjgbot-send-') as directory:
-            if isinstance(message, list):
-                message = [dict(part, data=dict(part['data'])) for part in message]
-                for index, part in enumerate(message):
-                    if part['type'] not in ('image', 'video', 'record', 'file'):
-                        continue
-                    data = part['data']
-                    location = data.get('url') or data.get('file', '')
-                    if not location.startswith(('https://', 'http://')):
-                        continue
-                    suffix = Path(urlsplit(location).path).suffix
-                    path = Path(directory) / (str(index) + suffix)
-                    self.download_file(location, path)
-                    data['file'] = str(path)
-                    data.pop('url', None)
+        if not isinstance(message, list):
+            return self.call('send_group_msg', group_id=group_id, message=message)
+        message = [dict(part, data=dict(part['data'])) for part in message]
+        remote = [part['data'] for part in message if part['type'] in ('image', 'video', 'record', 'file')
+                  and (part['data'].get('url') or part['data'].get('file', '')).startswith(('https://', 'http://'))]
+        if not remote:
+            return self.call('send_group_msg', group_id=group_id, message=message)
+        with MEDIA_DOWNLOAD_SLOTS, TemporaryDirectory(prefix='bjgbot-send-') as directory:
+            for index, data in enumerate(remote):
+                location = data.get('url') or data['file']
+                path = Path(directory) / (str(index) + Path(urlsplit(location).path).suffix)
+                self.download_file(location, path)
+                data['file'] = str(path)
+                data.pop('url', None)
             return self.call('send_group_msg', group_id=group_id, message=message)
 
     def download_file(self, url, path):

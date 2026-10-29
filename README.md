@@ -138,6 +138,12 @@ SSH 断开后需要继续运行时，可先用 `bash scripts/start.sh` 完成依
 
 使用 systemd 的服务器可安装 `scripts/systemd/napcat-watchdog.service` 和 `.timer` 到 `/etc/systemd/system/`，执行 `sudo systemctl daemon-reload` 和 `sudo systemctl enable --now napcat-watchdog.timer`。服务文件默认项目位于 `/opt/BJGBOT`，虚拟环境为 `.venv-linux`，NapCat 服务名为 `napcat.service`，其他部署路径需对应修改。每分钟检查 QQ 登录状态，连续三次离线后自动重启一次；两次自动重启至少间隔十分钟，恢复在线后才允许下一轮。若重启后仍未登录，等待扫码，并通过本机原生接口更新即将过期的二维码，不反复重启；已扫码或正在初始化时不替换二维码。手动停止 NapCat 时不自动启动。
 
+## 小内存服务器资源防护
+
+`scripts/systemd/bjgbot-agent-resources.conf` 和 `bjgbot-agent-gateway-resources.conf` 是当前 2GB 云服务器的可选 systemd 限制，分别安装为对应服务的 `service.d/50-resources.conf`。AI 主服务内存软限制 512MiB、硬限制 640MiB、swap 上限 64MiB，并限制实际磁盘读写和 IOPS；异常超限时可能只重启 AI 服务。QQ 不加内存硬限制。其他配置的服务器需按容量调整，磁盘路径 `/dev/vda` 也需匹配实际设备。
+
+`bjgbot-writeback.conf` 可安装到 `/etc/sysctl.d/`，将后台回写阈值设为 16MiB、脏页上限设为 64MiB，避免集中回写。`bjgbot-resource-monitor.service` 和 `.timer` 安装到 systemd 后启用定时器，每分钟记录内存、swap、I/O 压力和服务读写计数，保存在 `output/logs/resource-health.jsonl`，轮转最多约 3MiB，供故障后排查。普通访问日志不逐条记录，警告和错误仍保留；远程附件下载最多同时两条，普通文本不创建临时目录。
+
 ## 手机登录页
 
 独立入口只提供 QQ 在线状态、登录二维码和 DS 剩余余额，不开放 OneBot、消息上报或 NapCat 管理后台。默认要求访问密码，登录有效期为七天，二维码禁止缓存并在两分钟后隐藏。密码模式下离线时可主动获取新二维码，保存图片后用手机 QQ 从相册识别。设置 `require_password: false` 可直接访问公开只读页面；此时二维码和余额不再私密，主动重启接口关闭，自动掉线恢复仍然运行。自动重启后仍离线时，后台定时检查并通过本机 WebUI 原生接口更新即将过期的二维码，不重启 QQ；已扫码、初始化或重连期间不替换二维码。
