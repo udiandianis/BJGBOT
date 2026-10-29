@@ -59,6 +59,7 @@ class Settings:
     r2_secret_access_key: str = field(repr=False)
     r2_url_expiry_seconds: int
     agent: AgentConfig = field(default_factory=AgentConfig)
+    login_page: dict = field(default_factory=dict, repr=False)
 
     @classmethod
     def load(cls):
@@ -70,6 +71,11 @@ class Settings:
         if not isinstance(document, dict):
             raise ValueError('bot_settings.json 必须是 JSON 对象')
         agent = AgentConfig.load(document.pop('agent', {}))
+        login_page = document.pop('login_page', {})
+        if not isinstance(login_page, dict) or set(login_page) - {'password_hash', 'session_secret', 'qr_path'}:
+            raise ValueError('login_page 配置字段不合法')
+        if any(not isinstance(value, str) for value in login_page.values()):
+            raise ValueError('login_page 配置必须使用字符串')
         data = {}
 
         def read_section(section, layout, location):
@@ -118,4 +124,4 @@ class Settings:
                 raise ValueError
         except ValueError:
             raise ValueError('problemset_refresh_time 必须为 HH:MM 格式的有效时间') from None
-        return cls(**data, agent=agent)
+        return cls(**data, agent=agent, login_page=login_page)

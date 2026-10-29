@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f6f3">
+  <meta name="csrf-token" content="{{ csrf }}">
+  <title>QQ 登录 · BJGBOT</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+  {% if authenticated %}<script defer src="{{ url_for('static', filename='login.js') }}"></script>{% endif %}
+</head>
+<body>
+  <main>
+    <header><span class="brand">BJGBOT</span><span class="private">登录管理</span></header>
+    {% if not authenticated %}
+    <section class="panel">
+      <span class="eyebrow">仅限本人访问</span>
+      <h1>查看 QQ 登录状态</h1>
+      <p>输入访问密码，即可查看或保存登录二维码。</p>
+      <form method="post">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label for="password">访问密码</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+        {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+        <button type="submit">进入登录页</button>
+      </form>
+      <small>这里不需要输入 QQ 密码。</small>
+    </section>
+    {% else %}
+    <section class="panel">
+      <span class="eyebrow">账号状态</span>
+      <h1 id="status" role="status">正在检查…</h1>
+      <p id="message">正在获取最新登录状态，请稍候。</p>
+      <div id="qr-area" hidden>
+        <div class="qr-frame"><img id="qrcode" alt="当前 QQ 登录二维码" width="280" height="280"></div>
+        <a id="save" class="button" href="/qrcode.png?download=1" download="QQ-login.png">保存二维码</a>
+        <p class="instruction">保存图片后，打开手机 QQ 扫一扫，从相册选择二维码并确认登录。</p>
+      </div>
+      <div id="online-mark" hidden aria-hidden="true">✓</div>
+      <button id="refresh" class="secondary" type="button" hidden>获取新二维码</button>
+      <p id="feedback" class="error" role="status"></p>
+      <small id="updated">状态每 5 秒自动更新</small>
+    </section>
+    <section class="panel balance-panel" aria-labelledby="balance-heading">
+      <div class="balance-header"><h2 id="balance-heading">DeepSeek 剩余余额</h2><button id="balance-refresh" class="text-button" type="button">刷新</button></div>
+      <div id="balance-amount" class="balance-amount" role="status">正在查询…</div>
+      <p id="balance-detail" class="balance-detail"></p>
+      <small id="balance-updated">余额每分钟自动更新</small>
+    </section>
+    <form method="post" action="/logout" class="logout">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit">退出此页面</button>
+      <small>不会退出 QQ</small>
+    </form>
+    {% endif %}
+    <footer>二维码仅用于本人登录，请勿转发。</footer>
+  </main>
+</body>
+</html>

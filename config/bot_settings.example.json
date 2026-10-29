@@ -46,5 +46,10 @@
   },
   "problemset": {
     "refresh_time": "00:00"
+  },
+  "login_page": {
+    "password_hash": "",
+    "session_secret": "",
+    "qr_path": ""
   }
 }

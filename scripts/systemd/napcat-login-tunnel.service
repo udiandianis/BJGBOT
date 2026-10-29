@@ -1,0 +1,12 @@
+[Unit]
+Description=HTTPS tunnel for mobile QQ login page
+After=network-online.target napcat-login.service
+Wants=network-online.target napcat-login.service
+
+[Service]
+ExecStart=/usr/local/bin/cloudflared tunnel --url http://127.0.0.1:5011 --no-autoupdate --protocol http2
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

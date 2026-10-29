@@ -4,6 +4,27 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 
+def deepseek_balance(settings):
+    """查询当前 DeepSeek 账号余额，保留币种和赠金、充值余额明细。"""
+    if not settings.deepseek_api_key:
+        raise ValueError('DS 尚未配置 API Key')
+    base_url = settings.deepseek_base_url.rstrip('/')
+    if base_url.endswith('/v1'):
+        base_url = base_url[:-3]
+    response = requests.get(base_url + '/user/balance',
+                            headers={'Authorization': 'Bearer ' + settings.deepseek_api_key}, timeout=5)
+    response.raise_for_status()
+    result = response.json()
+    balances = result.get('balance_infos')
+    if not isinstance(balances, list) or not balances:
+        raise ValueError('当前 DS 服务未返回余额信息')
+    fields = ('currency', 'total_balance', 'granted_balance', 'topped_up_balance')
+    if any(not isinstance(row, dict) or any(not isinstance(row.get(field), str) for field in fields) for row in balances):
+        raise ValueError('DS 余额数据格式不正确')
+    return {'available': result.get('is_available') is True,
+            'balances': [{field: row[field] for field in fields} for row in balances]}
+
+
 def answer(question, settings, provider):
     """使用 GPT 或 DeepSeek 的独立配置回答，未配置密钥时返回提示。"""
     if provider not in ('gpt', 'deepseek'):

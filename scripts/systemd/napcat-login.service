@@ -1,0 +1,13 @@
+[Unit]
+Description=Mobile QQ login page
+After=network-online.target
+
+[Service]
+WorkingDirectory=/opt/BJGBOT
+ExecStart=/opt/BJGBOT/.venv-linux/bin/python -B -m src.web.login
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

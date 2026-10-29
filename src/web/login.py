@@ -1,0 +1,157 @@
+import hmac
+import logging
+import secrets
+import subprocess
+import threading
+import time
+from dataclasses import replace
+from datetime import timedelta
+from pathlib import Path
+
+from flask import Flask, jsonify, redirect, render_template, request, send_file, session
+from werkzeug.security import check_password_hash
+
+from ..adapters.napcat import NapCatClient
+from ..settings import get_settings
+from ..providers.ai import deepseek_balance
+
+logger = logging.getLogger(__name__)
+
+
+def create_login_app(settings=None, client=None):
+    """创建仅提供密码登录、状态和二维码的独立应用。"""
+    settings = settings or get_settings()
+    config = settings.login_page
+    if not config.get('password_hash') or len(config.get('session_secret', '')) < 32 or not config.get('qr_path'):
+        raise ValueError('请在 login_page 中配置密码哈希、会话密钥和二维码路径')
+    client = client or NapCatClient(replace(settings, request_timeout=3))
+    app = Flask(__name__, static_url_path='/assets')
+    app.config.update(SECRET_KEY=config['session_secret'], SESSION_COOKIE_NAME='bot_login',
+                      SESSION_COOKIE_SECURE=True, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Strict',
+                      PERMANENT_SESSION_LIFETIME=timedelta(days=7), MAX_CONTENT_LENGTH=8192)
+    qr_path = Path(config['qr_path'])
+    lock = threading.Lock()
+    attempts = []
+    last_refresh = 0
+    balance_cache = {'updated_at': 0, 'data': None}
+    balance_lock = threading.Lock()
+
+    def online():
+        """状态接口不可用时仍允许通过二维码重新登录。"""
+        try:
+            status = client.call('get_status')
+            return isinstance(status, dict) and status.get('online') is True
+        except Exception:
+            return False
+
+    @app.before_request
+    def verify_access():
+        """所有状态和图片接口都要求登录；修改操作验证会话令牌。"""
+        if request.endpoint != 'static':
+            session.setdefault('csrf', secrets.token_urlsafe(32))
+        if request.endpoint not in ('index', 'static') and not session.get('authenticated'):
+            return jsonify(error='请先输入访问密码'), 401
+        if request.method == 'POST':
+            token = request.headers.get('X-CSRF-Token') or request.form.get('csrf', '')
+            if not hmac.compare_digest(token, session.get('csrf', '')):
+                return jsonify(error='页面已过期，请刷新后重试'), 403
+
+    @app.after_request
+    def security_headers(response):
+        """禁止缓存二维码，并限制页面资源和嵌入来源。"""
+        response.headers.update({'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
+                                 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY',
+                                 'Content-Security-Policy': "default-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'"})
+        return response
+
+    @app.route('/', methods=['GET', 'POST'])
+    def index():
+        """校验独立访问密码，不使用 QQ 密码或 NapCat 管理令牌。"""
+        error = None
+        status = 200
+        if request.method == 'POST':
+            now = time.time()
+            with lock:
+                attempts[:] = [when for when in attempts if now - when < 900]
+                if len(attempts) >= 5:
+                    error, status = '尝试次数过多，请在 15 分钟后重试', 429
+                elif check_password_hash(config['password_hash'], request.form.get('password', '')):
+                    session.clear()
+                    session.update(authenticated=True, csrf=secrets.token_urlsafe(32))
+                    session.permanent = True
+                    attempts.clear()
+                    return redirect('/')
+                else:
+                    attempts.append(now)
+                    error, status = '访问密码不正确，请重试', 401
+        return render_template('login.html', authenticated=session.get('authenticated', False),
+                               csrf=session['csrf'], error=error), status
+
+    @app.get('/status')
+    def status():
+        """只返回登录状态和新鲜二维码的修改时间。"""
+        active = online()
+        try:
+            modified = qr_path.stat().st_mtime
+        except FileNotFoundError:
+            modified = 0
+        available = not active and modified >= last_refresh and 0 <= time.time() - modified < 120
+        return jsonify(online=active, qr_available=available, updated_at=int(modified) if available else None)
+
+    @app.get('/qrcode.png')
+    def qrcode():
+        """仅提供当前有效二维码，在线或过期时不返回旧图片。"""
+        if online():
+            return jsonify(error='QQ 已在线，无需扫码'), 409
+        try:
+            modified = qr_path.stat().st_mtime
+            if modified < last_refresh or not 0 <= time.time() - modified < 120:
+                return jsonify(error='二维码已过期，请获取新二维码'), 410
+            return send_file(qr_path, mimetype='image/png', as_attachment=request.args.get('download') == '1',
+                             download_name='QQ-login.png', conditional=False, max_age=0)
+        except FileNotFoundError:
+            return jsonify(error='二维码正在生成，请稍候'), 404
+
+    @app.post('/refresh')
+    def refresh():
+        """离线时允许主动刷新二维码，两次操作至少间隔两分钟。"""
+        nonlocal last_refresh
+        if online():
+            return jsonify(error='QQ 已在线，无需重新登录'), 409
+        with lock:
+            now = time.time()
+            if now - last_refresh < 120:
+                return jsonify(error='正在等待登录，请稍后再获取新二维码'), 429
+            last_refresh = now
+        try:
+            subprocess.run(['systemctl', 'restart', 'napcat.service'], check=True, timeout=45)
+        except (subprocess.SubprocessError, OSError):
+            logger.exception('手机登录页刷新二维码失败')
+            return jsonify(error='暂时无法刷新二维码，请稍后重试'), 503
+        return jsonify(ok=True)
+
+    @app.post('/logout')
+    def logout():
+        """只退出手机管理页面，不退出 QQ。"""
+        session.clear()
+        return redirect('/')
+
+    @app.get('/balance')
+    def balance():
+        """登录后查询 DS 余额，最多每分钟向服务商请求一次。"""
+        with balance_lock:
+            if time.time() - balance_cache['updated_at'] < 60 and balance_cache['data'] is not None:
+                return jsonify(**balance_cache['data'], updated_at=balance_cache['updated_at'])
+            try:
+                data = deepseek_balance(settings)
+            except Exception:
+                return jsonify(error='DS 余额暂时无法查询，请稍后重试'), 503
+            balance_cache.update(updated_at=int(time.time()), data=data)
+            return jsonify(**data, updated_at=balance_cache['updated_at'])
+
+    return app
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    create_login_app().run(host='127.0.0.1', port=5011)

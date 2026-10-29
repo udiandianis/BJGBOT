@@ -138,6 +138,16 @@ SSH 断开后需要继续运行时，可先用 `bash scripts/start.sh` 完成依
 
 使用 systemd 的服务器可安装 `scripts/systemd/napcat-watchdog.service` 和 `.timer` 到 `/etc/systemd/system/`，执行 `sudo systemctl daemon-reload` 和 `sudo systemctl enable --now napcat-watchdog.timer`。服务文件默认项目位于 `/opt/BJGBOT`，虚拟环境为 `.venv-linux`，NapCat 服务名为 `napcat.service`，其他部署路径需对应修改。每分钟检查 QQ 登录状态，连续三次离线后自动重启一次；两次自动重启至少间隔十分钟，恢复在线后才允许下一轮。若重启后仍未登录，保留二维码等待扫码，不会反复刷新；手动停止 NapCat 时不自动启动。
 
+## 手机登录页
+
+独立入口只提供 QQ 在线状态、登录二维码和 DS 剩余余额，不开放 OneBot、消息上报或 NapCat 管理后台。页面要求访问密码，登录有效期为七天，二维码禁止缓存并在两分钟后隐藏。离线时可主动获取新二维码，登录后保存图片，再用手机 QQ 从相册识别。
+
+`config/bot_settings.json` 的 `login_page` 保存 `password_hash`（Werkzeug 密码哈希）、`session_secret`（至少 32 字符的随机密钥）和 `qr_path`（NapCat 的 `cache/qrcode.png` 绝对路径）。这些值只保存在被忽略的真实配置中。未配置该部分不影响机器人运行。
+
+服务器将 `scripts/systemd/napcat-login.service` 安装到 `/etc/systemd/system/`，执行 `systemctl daemon-reload` 和 `systemctl enable --now napcat-login.service`；它仅监听 `127.0.0.1:5011`。使用官方 cloudflared 二进制和 `napcat-login-tunnel.service` 可提供临时 HTTPS 入口，无需开放服务器端口。入口地址可从 `journalctl -u napcat-login-tunnel.service` 查看，重启隧道后可能变化，不适合作为永久地址。
+
+DS 余额通过云端密钥查询 [DeepSeek 余额接口](https://api-docs.deepseek.com/zh-cn/api/get-user-balance/)，每分钟刷新，显示总余额、赠金和充值余额；查询失败单独提示，不显示为零。页面和浏览器均不接收 API 密钥。
+
 ## 字体
 
 字体集中在 `resources/fonts/`，随项目部署，Windows 和 Linux 使用同一套资源：
