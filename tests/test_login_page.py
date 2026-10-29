@@ -157,7 +157,10 @@ class LoginPageTests(unittest.TestCase):
         self.assertEqual(history.status_code, 200)
         self.assertEqual(history.json['samples'], 1)
         self.assertEqual(history.json['points'][0]['balance'], '12.34')
-        self.assertEqual(self.request('/balance-history?days=999').status_code, 400)
+        for days in ('1', '14', '45', '180'):
+            self.assertEqual(self.request('/balance-history?days=' + days).status_code, 200)
+        for days in ('0', '181', '999', '-1', '7.5', 'abc', '9' * 5000):
+            self.assertEqual(self.request('/balance-history?days=' + days).status_code, 400)
         self.assertEqual(self.request('/balance-history?currency=invalid').status_code, 400)
 
     def test_status_requests_share_short_cache_and_then_refresh(self):

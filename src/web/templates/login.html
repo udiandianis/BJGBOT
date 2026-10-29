@@ -50,19 +50,14 @@
       <div class="history-controls">
         <select id="history-currency" aria-label="余额统计币种" hidden><option value="CNY">人民币</option></select>
       </div>
-      <div class="history-ranges" role="group" aria-label="统计时间范围">
-        <button type="button" data-days="7" aria-pressed="true">近 7 天</button>
-        <button type="button" data-days="30" aria-pressed="false">近 30 天</button>
-      </div>
+      <form id="history-range" class="history-range">
+        <label for="history-days">最近</label>
+        <input id="history-days" name="days" type="number" min="1" max="180" step="1" value="7" inputmode="numeric" aria-label="统计天数" required>
+        <span>天</span><button type="submit" class="secondary">查看</button>
+      </form>
       <svg id="history-chart" viewBox="0 0 320 180" role="img" aria-label="DeepSeek 余额变化趋势" hidden></svg>
       <p id="history-caption" class="history-caption" role="status">正在读取记录…</p>
-      <div class="history-table-wrap">
-        <table class="history-table"><caption class="sr-only">按北京时间统计每日余额变化</caption>
-          <thead><tr><th scope="col">日期</th><th scope="col">减少</th><th scope="col">增加</th><th scope="col">结余</th></tr></thead>
-          <tbody id="history-daily"></tbody>
-        </table>
-      </div>
-      <small>每天一个节点，显示当日最新余额；增减按余额差额估算。</small>
+      <small>每天一个节点，显示当日最新余额。</small>
     </section>
     {% if require_password %}<form method="post" action="/logout" class="logout">
       <input type="hidden" name="csrf" value="{{ csrf }}">

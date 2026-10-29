@@ -173,14 +173,15 @@ def create_login_app(settings=None, client=None):
         """查询有限时间范围的余额变化，沿用页面访问权限。"""
         days = request.args.get('days', '7')
         currency = request.args.get('currency', 'CNY')
-        if days not in ('1', '7', '30') or currency not in ('CNY', 'USD'):
-            return jsonify(error='请选择今日、近 7 天或近 30 天，以及有效币种'), 400
+        if len(days) > 3 or not days.isdecimal() or not 1 <= int(days) <= 180 or currency not in ('CNY', 'USD'):
+            return jsonify(error='请输入 1 到 180 的整数天数，并选择有效币种'), 400
+        days = int(days)
         with history_lock:
             key = (days, currency)
             cached = history_cache.get(key)
             if cached and time.monotonic() - cached['checked_at'] < 30:
                 return jsonify(cached['data'])
-            data = balances.balance_history(settings, int(days), currency)
+            data = balances.balance_history(settings, days, currency)
             history_cache[key] = {'checked_at': time.monotonic(), 'data': data}
             return jsonify(data)
 

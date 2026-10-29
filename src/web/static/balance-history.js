@@ -1,7 +1,8 @@
 const historyChart = document.querySelector('#history-chart');
 const historyCaption = document.querySelector('#history-caption');
 const historyCurrency = document.querySelector('#history-currency');
-const rangeButtons = [...document.querySelectorAll('.history-ranges button')];
+const historyRange = document.querySelector('#history-range');
+const historyDayInput = document.querySelector('#history-days');
 let historyDays = 7;
 let historyLoading = false;
 let chartPoints = [];
@@ -61,26 +62,6 @@ function drawHistory(points) {
   selectChartPoint(points.length - 1);
 }
 
-function historyRows(target, rows, width, empty) {
-  target.replaceChildren();
-  for (const cells of rows) {
-    const row = document.createElement('tr');
-    for (const value of cells) {
-      const cell = document.createElement('td');
-      cell.textContent = value;
-      row.append(cell);
-    }
-    target.append(row);
-  }
-  if (!rows.length) {
-    const row = document.createElement('tr'), cell = document.createElement('td');
-    cell.colSpan = width;
-    cell.textContent = empty;
-    row.append(cell);
-    target.append(row);
-  }
-}
-
 async function loadHistory() {
   if (historyLoading || document.hidden) return;
   historyLoading = true;
@@ -92,9 +73,6 @@ async function loadHistory() {
     if (!response.ok) throw new Error(result.error || '暂时无法读取历史记录');
     if (currency !== historyCurrency.value || days !== historyDays) return;
     drawHistory(result.points);
-    historyRows(document.querySelector('#history-daily'), result.daily.map(row => [
-      row.date.slice(5), historyNumber(row.decrease), historyNumber(row.increase), historyNumber(row.ending_balance)
-    ]), 4, '暂无采样记录');
   } catch (error) { historyCaption.textContent = error.message; }
   finally {
     historyLoading = false;
@@ -102,9 +80,10 @@ async function loadHistory() {
   }
 }
 
-for (const button of rangeButtons) button.addEventListener('click', () => {
-  historyDays = Number(button.dataset.days);
-  for (const other of rangeButtons) other.setAttribute('aria-pressed', String(other === button));
+historyRange.addEventListener('submit', event => {
+  event.preventDefault();
+  if (!historyRange.reportValidity()) return;
+  historyDays = Number(historyDayInput.value);
   loadHistory();
 });
 historyCurrency.addEventListener('change', loadHistory);
