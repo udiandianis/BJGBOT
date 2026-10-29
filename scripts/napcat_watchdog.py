@@ -9,6 +9,7 @@ from pathlib import Path
 import requests
 
 from src.adapters.napcat import NapCatClient, NapCatError
+from src.adapters.napcat_login import refresh_expired_qr
 from src.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,11 @@ def check_login(settings, state_path=STATE_PATH):
     else:
         state['failures'] = min(3, state['failures'] + 1)
         if state['attempted_restart']:
-            logger.warning('自动重启后仍未登录，保留当前二维码，等待扫码确认')
+            try:
+                if refresh_expired_qr(settings):
+                    logger.info('已更新待扫码二维码，无需重启 NapCat')
+            except (requests.RequestException, NapCatError, ValueError, OSError) as error:
+                logger.warning('更新待扫码二维码失败：%s', type(error).__name__)
         elif state['failures'] >= 3 and now - state['last_restart'] >= 600:
             state.update(last_restart=now, attempted_restart=True)
             restart = True

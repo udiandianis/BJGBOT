@@ -20,7 +20,7 @@ async function updateStatus() {
     onlineMark.hidden = !state.online;
     refresh.hidden = state.online || !state.can_refresh;
     statusText.textContent = state.online ? 'QQ 已在线' : state.qr_available ? '等待扫码登录' : '需要重新登录';
-    message.textContent = state.online ? '机器人已连接，无需扫码。' : state.qr_available ? '请使用当前二维码完成手机 QQ 授权。' : state.can_refresh ? '当前没有可用二维码，点击下方按钮获取。' : '当前没有可用二维码，等待自动重新登录，或联系管理员刷新。';
+    message.textContent = state.online ? '机器人已连接，无需扫码。' : state.qr_available ? '请使用当前二维码完成手机 QQ 授权。' : state.can_refresh ? '当前没有可用二维码，点击下方按钮获取。' : '正在等待自动恢复或更新二维码，请稍候，页面会自动刷新。';
     if (state.qr_available && qrVersion !== state.updated_at) {
       qrVersion = state.updated_at;
       qrImage.src = `/qrcode.png?v=${qrVersion}`;

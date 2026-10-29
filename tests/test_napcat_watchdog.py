@@ -24,6 +24,9 @@ class NapCatWatchdogTests(unittest.TestCase):
         clock = patch.object(napcat_watchdog.time, 'time', return_value=10000)
         self.clock = clock.start()
         self.addCleanup(clock.stop)
+        refresh = patch.object(napcat_watchdog, 'refresh_expired_qr', return_value=False)
+        self.refresh = refresh.start()
+        self.addCleanup(refresh.stop)
 
     def check(self):
         napcat_watchdog.check_login(test_settings(), self.state_path)
@@ -38,9 +41,11 @@ class NapCatWatchdogTests(unittest.TestCase):
         self.assertFalse(self.restarts())
         self.check()
         self.assertEqual(len(self.restarts()), 1)
+        self.refresh.assert_not_called()
         self.clock.return_value += 3600
         self.check()
         self.assertEqual(len(self.restarts()), 1)
+        self.refresh.assert_called_once()
 
     def test_online_rearms_recovery_and_cooldown_prevents_repeated_restarts(self):
         self.client.call.return_value = {'online': False}

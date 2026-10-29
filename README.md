@@ -136,11 +136,11 @@ SSH 断开后需要继续运行时，可先用 `bash scripts/start.sh` 完成依
 
 此脚本适用于 NapCat Shell 本机部署。
 
-使用 systemd 的服务器可安装 `scripts/systemd/napcat-watchdog.service` 和 `.timer` 到 `/etc/systemd/system/`，执行 `sudo systemctl daemon-reload` 和 `sudo systemctl enable --now napcat-watchdog.timer`。服务文件默认项目位于 `/opt/BJGBOT`，虚拟环境为 `.venv-linux`，NapCat 服务名为 `napcat.service`，其他部署路径需对应修改。每分钟检查 QQ 登录状态，连续三次离线后自动重启一次；两次自动重启至少间隔十分钟，恢复在线后才允许下一轮。若重启后仍未登录，保留二维码等待扫码，不会反复刷新；手动停止 NapCat 时不自动启动。
+使用 systemd 的服务器可安装 `scripts/systemd/napcat-watchdog.service` 和 `.timer` 到 `/etc/systemd/system/`，执行 `sudo systemctl daemon-reload` 和 `sudo systemctl enable --now napcat-watchdog.timer`。服务文件默认项目位于 `/opt/BJGBOT`，虚拟环境为 `.venv-linux`，NapCat 服务名为 `napcat.service`，其他部署路径需对应修改。每分钟检查 QQ 登录状态，连续三次离线后自动重启一次；两次自动重启至少间隔十分钟，恢复在线后才允许下一轮。若重启后仍未登录，等待扫码，并通过本机原生接口更新即将过期的二维码，不反复重启；已扫码或正在初始化时不替换二维码。手动停止 NapCat 时不自动启动。
 
 ## 手机登录页
 
-独立入口只提供 QQ 在线状态、登录二维码和 DS 剩余余额，不开放 OneBot、消息上报或 NapCat 管理后台。默认要求访问密码，登录有效期为七天，二维码禁止缓存并在两分钟后隐藏。密码模式下离线时可主动获取新二维码，保存图片后用手机 QQ 从相册识别。设置 `require_password: false` 可直接访问公开只读页面；此时二维码和余额不再私密，主动重启接口关闭，自动掉线恢复仍然运行。
+独立入口只提供 QQ 在线状态、登录二维码和 DS 剩余余额，不开放 OneBot、消息上报或 NapCat 管理后台。默认要求访问密码，登录有效期为七天，二维码禁止缓存并在两分钟后隐藏。密码模式下离线时可主动获取新二维码，保存图片后用手机 QQ 从相册识别。设置 `require_password: false` 可直接访问公开只读页面；此时二维码和余额不再私密，主动重启接口关闭，自动掉线恢复仍然运行。自动重启后仍离线时，后台定时检查并通过本机 WebUI 原生接口更新即将过期的二维码，不重启 QQ；已扫码、初始化或重连期间不替换二维码。
 
 `config/bot_settings.json` 的 `login_page` 保存 `password_hash`（Werkzeug 密码哈希）、`session_secret`（至少 32 字符的随机密钥）和 `qr_path`（NapCat 的 `cache/qrcode.png` 绝对路径）。`host`、`port` 控制监听地址和端口，`secure_cookie` 控制是否只通过 HTTPS 发送登录 Cookie。这些值只保存在被忽略的真实配置中。未配置该部分不影响机器人运行。
 
