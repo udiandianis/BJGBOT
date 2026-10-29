@@ -1,0 +1,11 @@
+[Unit]
+Description=Check NapCat login every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=60s
+AccuracySec=5s
+Unit=napcat-watchdog.service
+
+[Install]
+WantedBy=timers.target

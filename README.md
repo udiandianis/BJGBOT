@@ -134,7 +134,9 @@ bash scripts/start.sh
 
 SSH 断开后需要继续运行时，可先用 `bash scripts/start.sh` 完成依赖安装，在服务启动后按 Ctrl+C 停止本次服务，再执行 `screen -S bjgbot bash scripts/start.sh`。按 Ctrl+A 再按 D 离开会话，使用 `screen -r bjgbot` 返回。
 
-此脚本适用于 NapCat Shell 本机部署。Linux QQ 尚未在 Linux 实机验证。
+此脚本适用于 NapCat Shell 本机部署。
+
+使用 systemd 的服务器可安装 `scripts/systemd/napcat-watchdog.service` 和 `.timer` 到 `/etc/systemd/system/`，执行 `sudo systemctl daemon-reload` 和 `sudo systemctl enable --now napcat-watchdog.timer`。服务文件默认项目位于 `/opt/BJGBOT`，虚拟环境为 `.venv-linux`，NapCat 服务名为 `napcat.service`，其他部署路径需对应修改。每分钟检查 QQ 登录状态，连续三次离线后自动重启一次；两次自动重启至少间隔十分钟，恢复在线后才允许下一轮。若重启后仍未登录，保留二维码等待扫码，不会反复刷新；手动停止 NapCat 时不自动启动。
 
 ## 字体
 

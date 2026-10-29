@@ -1,0 +1,11 @@
+[Unit]
+Description=NapCat login watchdog
+After=network-online.target napcat.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/BJGBOT
+ExecStart=/opt/BJGBOT/.venv-linux/bin/python -B -m scripts.napcat_watchdog
+StateDirectory=napcat-watchdog
+UMask=0077
+TimeoutStartSec=90
