@@ -142,9 +142,11 @@ SSH 断开后需要继续运行时，可先用 `bash scripts/start.sh` 完成依
 
 独立入口只提供 QQ 在线状态、登录二维码和 DS 剩余余额，不开放 OneBot、消息上报或 NapCat 管理后台。页面要求访问密码，登录有效期为七天，二维码禁止缓存并在两分钟后隐藏。离线时可主动获取新二维码，登录后保存图片，再用手机 QQ 从相册识别。
 
-`config/bot_settings.json` 的 `login_page` 保存 `password_hash`（Werkzeug 密码哈希）、`session_secret`（至少 32 字符的随机密钥）和 `qr_path`（NapCat 的 `cache/qrcode.png` 绝对路径）。这些值只保存在被忽略的真实配置中。未配置该部分不影响机器人运行。
+`config/bot_settings.json` 的 `login_page` 保存 `password_hash`（Werkzeug 密码哈希）、`session_secret`（至少 32 字符的随机密钥）和 `qr_path`（NapCat 的 `cache/qrcode.png` 绝对路径）。`host`、`port` 控制监听地址和端口，`secure_cookie` 控制是否只通过 HTTPS 发送登录 Cookie。这些值只保存在被忽略的真实配置中。未配置该部分不影响机器人运行。
 
-服务器将 `scripts/systemd/napcat-login.service` 安装到 `/etc/systemd/system/`，执行 `systemctl daemon-reload` 和 `systemctl enable --now napcat-login.service`；它仅监听 `127.0.0.1:5011`。使用官方 cloudflared 二进制和 `napcat-login-tunnel.service` 可提供临时 HTTPS 入口，无需开放服务器端口。入口地址可从 `journalctl -u napcat-login-tunnel.service` 查看，重启隧道后可能变化，不适合作为永久地址。
+服务器将 `scripts/systemd/napcat-login.service` 安装到 `/etc/systemd/system/`，执行 `systemctl daemon-reload` 和 `systemctl enable --now napcat-login.service`。直接通过公网 IP 访问时，配置 `host: "0.0.0.0"`、`port: 5011`、`secure_cookie: false`，并在服务器安全组放行 TCP 5011，使用 `http://服务器IP:5011`；纯 HTTP 不加密密码和二维码。OneBot 和 NapCat 管理后台继续仅监听本机。
+
+示例配置默认仅监听 `127.0.0.1:5011` 且启用安全 Cookie；使用反向代理或官方 cloudflared 和 `napcat-login-tunnel.service` 可提供 HTTPS 入口。临时隧道地址可从 `journalctl -u napcat-login-tunnel.service` 查看，重启隧道后可能变化。
 
 DS 余额通过云端密钥查询 [DeepSeek 余额接口](https://api-docs.deepseek.com/zh-cn/api/get-user-balance/)，每分钟刷新，显示总余额、赠金和充值余额；查询失败单独提示，不显示为零。页面和浏览器均不接收 API 密钥。
 

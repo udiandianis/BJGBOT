@@ -72,10 +72,14 @@ class Settings:
             raise ValueError('bot_settings.json 必须是 JSON 对象')
         agent = AgentConfig.load(document.pop('agent', {}))
         login_page = document.pop('login_page', {})
-        if not isinstance(login_page, dict) or set(login_page) - {'password_hash', 'session_secret', 'qr_path'}:
+        if not isinstance(login_page, dict) or set(login_page) - {'password_hash', 'session_secret', 'qr_path', 'host', 'port', 'secure_cookie'}:
             raise ValueError('login_page 配置字段不合法')
-        if any(not isinstance(value, str) for value in login_page.values()):
-            raise ValueError('login_page 配置必须使用字符串')
+        if any(not isinstance(value, str) for key, value in login_page.items() if key not in ('port', 'secure_cookie')):
+            raise ValueError('login_page 的密码、会话密钥、路径和监听地址必须使用字符串')
+        if type(login_page.get('port', 5011)) is not int or not 1 <= login_page.get('port', 5011) <= 65535:
+            raise ValueError('login_page.port 必须是有效端口号')
+        if type(login_page.get('secure_cookie', True)) is not bool:
+            raise ValueError('login_page.secure_cookie 必须为布尔值')
         data = {}
 
         def read_section(section, layout, location):

@@ -27,7 +27,7 @@ def create_login_app(settings=None, client=None):
     client = client or NapCatClient(replace(settings, request_timeout=3))
     app = Flask(__name__, static_url_path='/assets')
     app.config.update(SECRET_KEY=config['session_secret'], SESSION_COOKIE_NAME='bot_login',
-                      SESSION_COOKIE_SECURE=True, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Strict',
+                      SESSION_COOKIE_SECURE=config.get('secure_cookie', True), SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Strict',
                       PERMANENT_SESSION_LIFETIME=timedelta(days=7), MAX_CONTENT_LENGTH=8192)
     qr_path = Path(config['qr_path'])
     lock = threading.Lock()
@@ -154,4 +154,6 @@ def create_login_app(settings=None, client=None):
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    create_login_app().run(host='127.0.0.1', port=5011)
+    settings = get_settings()
+    create_login_app(settings).run(host=settings.login_page.get('host', '127.0.0.1'),
+                                   port=settings.login_page.get('port', 5011))

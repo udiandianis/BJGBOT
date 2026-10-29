@@ -50,6 +50,9 @@
   "login_page": {
     "password_hash": "",
     "session_secret": "",
-    "qr_path": ""
+    "qr_path": "",
+    "host": "127.0.0.1",
+    "port": 5011,
+    "secure_cookie": true
   }
 }

@@ -62,6 +62,17 @@ class LoginPageTests(unittest.TestCase):
             self.assertEqual(self.request(method='POST', data={'csrf': token, 'password': 'wrong'}).status_code, 401)
         self.assertEqual(self.request(method='POST', data={'csrf': token, 'password': 'wrong'}).status_code, 429)
 
+    def test_explicit_http_mode_supports_login_and_protected_status(self):
+        settings = replace(self.settings, login_page={**self.settings.login_page, 'secure_cookie': False})
+        client = create_login_app(settings, self.napcat).test_client()
+        page = client.get('/', base_url='http://localhost')
+        token = re.search(rb'name="csrf-token" content="([^"]+)"', page.data)[1].decode()
+        response = client.post('/', base_url='http://localhost', data={'csrf': token, 'password': 'test-password'})
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn('Secure;', response.headers['Set-Cookie'])
+        self.assertIn('HttpOnly', response.headers['Set-Cookie'])
+        self.assertEqual(client.get('/status', base_url='http://localhost').status_code, 200)
+
     def test_fresh_qr_can_be_downloaded_and_is_not_cached(self):
         self.login()
         self.assertTrue(self.request('/status').json['qr_available'])
