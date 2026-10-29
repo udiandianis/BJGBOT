@@ -29,7 +29,7 @@ function selectChartPoint(index) {
 
 function drawHistory(points) {
   historyChart.replaceChildren();
-  historyChart.hidden = !points.length;
+  historyChart.toggleAttribute('hidden', !points.length);
   chartPoints = points;
   if (!points.length) {
     historyCaption.textContent = '暂无记录，后台会自动采样。';
@@ -37,6 +37,7 @@ function drawHistory(points) {
   }
   const values = points.map(point => Number(point.balance));
   const minimum = Math.min(...values), maximum = Math.max(...values);
+  historyChart.setAttribute('aria-label', `${points.length} 次余额采样，最高 ${historyMoney(maximum)}，最低 ${historyMoney(minimum)}`);
   const padding = Math.max((maximum - minimum) * 0.12, 0.005);
   const low = minimum - padding, high = maximum + padding;
   const first = points[0].time, last = points[points.length - 1].time;
