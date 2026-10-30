@@ -11,6 +11,7 @@ CONFIG_LAYOUT = {
                'windows_launcher': 'napcat_windows_launcher', 'linux_qq_path': 'napcat_linux_qq_path'},
     'welcome': {'groups': 'welcome_groups', 'message': 'welcome_message'},
     'ai': {
+        'request_timeout': 'ai_request_timeout',
         'chatgpt': {'base_url': 'gpt_base_url', 'model': 'gpt_model', 'api_key': 'gpt_api_key'},
         'deepseek': {'base_url': 'deepseek_base_url', 'model': 'deepseek_model', 'api_key': 'deepseek_api_key'},
     },
@@ -38,6 +39,7 @@ class Settings:
     napcat_url: str
     napcat_token: str = field(repr=False)
     request_timeout: float
+    ai_request_timeout: float
     welcome_groups: tuple[int, ...]
     media_admins: tuple[int, ...]
     gpt_base_url: str
@@ -102,8 +104,9 @@ class Settings:
                 raise ValueError(f'{key} 必须是整数')
         if data['bot_qq'] <= 0 or not all(1 <= data[key] <= 65535 for key in ('port', 'napcat_webui_port')):
             raise ValueError('QQ 号或端口不合法')
-        if type(data['request_timeout']) not in (int, float) or data['request_timeout'] <= 0:
-            raise ValueError('request_timeout 必须是正数')
+        for key in ('request_timeout', 'ai_request_timeout'):
+            if type(data[key]) not in (int, float) or not 0 < data[key] < float('inf'):
+                raise ValueError(f'{key} 必须是有限正数')
         for key in ('welcome_groups', 'media_admins'):
             if not isinstance(data[key], list) or any(type(value) is not int or value <= 0 for value in data[key]):
                 raise ValueError(f'{key} 必须是正整数数组')

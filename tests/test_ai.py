@@ -30,7 +30,7 @@ class AIRequestTests(unittest.TestCase):
         self.thread.start()
         self.addCleanup(self.close_server)
         self.settings = SimpleNamespace(gpt_api_key='test', gpt_model='test-model',
-            gpt_base_url=f'http://127.0.0.1:{self.server.server_port}/v1/', request_timeout=2)
+            gpt_base_url=f'http://127.0.0.1:{self.server.server_port}/v1/', request_timeout=2, ai_request_timeout=5)
 
     def close_server(self):
         self.server.shutdown()

@@ -20,9 +20,10 @@ Windows 还需先安装 Python 3.10 或更高版本和 NapCat；Linux 脚本可�
 | `napcat.webui_port` | 启动脚本检测 NapCat WebUI 的端口 |
 | `napcat.windows_launcher` | Windows NapCat 启动器的完整路径 |
 | `napcat.linux_qq_path` | Linux 已安装 NapCat 的 QQ 可执行文件路径，支持 `~` |
-| `bot.request_timeout` | NapCat、平台查询和 AI 请求超时，单位秒 |
+| `bot.request_timeout` | NapCat、平台查询及 AI 建立连接的超时，单位秒 |
 | `welcome.groups` / `welcome.message` | 欢迎消息生效的群号及纯文本；程序自动 @ 新成员，无需填写 CQ 码 |
 | `collections.admins` | 允许使用删除、清空指令的 QQ 号；首位同时作为社区 Agent 主人 |
+| `ai.request_timeout` | AI 回答读取超时，单位秒，建议 120；独立于普通请求 |
 | `ai.chatgpt.base_url` / `ai.chatgpt.model` / `ai.chatgpt.api_key` | ChatGPT 服务地址、模型和密钥 |
 | `ai.deepseek.base_url` / `ai.deepseek.model` / `ai.deepseek.api_key` | DeepSeek 服务地址、模型和密钥 |
 | `platforms.luogu.cookies` | 洛谷查询所用 Cookies |

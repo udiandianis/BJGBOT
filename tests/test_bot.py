@@ -497,7 +497,7 @@ class ProviderAndMediaTests(unittest.TestCase):
                 self.assertEqual(request.args[0], getattr(settings, provider + '_base_url').rstrip('/') + '/chat/completions')
                 self.assertEqual(request.kwargs['headers']['Authorization'], 'Bearer ' + getattr(settings, provider + '_api_key'))
                 self.assertEqual(request.kwargs['json']['model'], getattr(settings, provider + '_model'))
-                self.assertEqual(request.kwargs['timeout'], settings.request_timeout)
+                self.assertEqual(request.kwargs['timeout'], (settings.request_timeout, settings.ai_request_timeout))
 
     def test_codeforces_submission_pagination(self):
         first_page = [{'id': index} for index in range(10000)]

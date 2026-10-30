@@ -41,7 +41,7 @@ def answer(question, settings, provider):
         response = session.post(url, headers={'Authorization': f'Bearer {api_key}'},
             json={'model': getattr(settings, provider + '_model'),
                   'messages': [{'role': 'user', 'content': html.unescape(question) + '切记需要中文回答'}]},
-            timeout=settings.request_timeout)
+            timeout=(settings.request_timeout, settings.ai_request_timeout))
         response.raise_for_status()
         result = response.json()
     choices = result.get('choices') or []

@@ -17,6 +17,7 @@
     "message": "欢迎加入！"
   },
   "ai": {
+    "request_timeout": 120,
     "chatgpt": {
       "base_url": "",
       "model": "",
