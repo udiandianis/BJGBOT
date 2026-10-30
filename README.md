@@ -140,7 +140,7 @@ SSH 断开后需要继续运行时，可先用 `bash scripts/start.sh` 完成依
 
 ## 小内存服务器资源防护
 
-`scripts/systemd/bjgbot-agent-resources.conf` 和 `bjgbot-agent-gateway-resources.conf` 是当前 2GB 云服务器的可选 systemd 限制，分别安装为对应服务的 `service.d/50-resources.conf`。AI 主服务内存软限制 704MiB、硬限制 768MiB、swap 上限 64MiB，并限制实际磁盘读写和 IOPS；异常超限时可能只重启 AI 服务。软限制应高于正常工作内存，避免反复回收导致读盘。QQ 不加内存硬限制。其他配置的服务器需按容量调整，磁盘路径 `/dev/vda` 也需匹配实际设备。
+`scripts/systemd/bjgbot-agent-resources.conf` 和 `bjgbot-agent-gateway-resources.conf` 是当前 2GB 云服务器的可选 systemd 限制，分别安装为对应服务的 `service.d/50-resources.conf`。AI 主服务内存软限制 768MiB、硬限制 832MiB、swap 上限 64MiB，并限制实际磁盘读写和 IOPS；异常超限时可能只重启 AI 服务。软限制应高于正常工作内存，避免反复回收导致读盘。QQ 不加内存硬限制。其他配置的服务器需按容量调整，磁盘路径 `/dev/vda` 也需匹配实际设备。
 
 `bjgbot-writeback.conf` 可安装到 `/etc/sysctl.d/`，将后台回写阈值设为 16MiB、脏页上限设为 64MiB，避免集中回写。`bjgbot-resource-monitor.service` 和 `.timer` 安装到 systemd 后启用定时器，每分钟记录内存、swap、I/O 压力和服务读写计数，保存在 `output/logs/resource-health.jsonl`，轮转最多约 3MiB，供故障后排查。普通访问日志不逐条记录，警告和错误仍保留；远程附件下载最多同时两条，普通文本不创建临时目录。
 
