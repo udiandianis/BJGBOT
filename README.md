@@ -141,9 +141,13 @@ SSH 断开后需要继续运行时，可先用 `bash scripts/start.sh` 完成依
 
 ## 小内存服务器资源防护
 
-`scripts/systemd/bjgbot-agent-resources.conf` 和 `bjgbot-agent-gateway-resources.conf` 是当前 2GB 云服务器的可选 systemd 限制，分别安装为对应服务的 `service.d/50-resources.conf`。AI 主服务内存软限制 768MiB、硬限制 832MiB、swap 上限 64MiB，并限制实际磁盘读写和 IOPS；异常超限时可能只重启 AI 服务。软限制应高于正常工作内存，避免反复回收导致读盘。QQ 不加内存硬限制。其他配置的服务器需按容量调整，磁盘路径 `/dev/vda` 也需匹配实际设备。
+`scripts/systemd/bjgbot-agent-resources.conf` 和 `bjgbot-agent-gateway-resources.conf` 是当前 2GB 云服务器的可选 systemd 限制，分别安装为对应服务的 `service.d/50-resources.conf`。AI 主服务内存软限制 768MiB、硬限制 832MiB、swap 上限 64MiB，并限制实际磁盘读写和 IOPS；异常超限时可能只重启 AI 服务。网关软限制 192MiB、硬限制 256MiB，为 4K 图片传输留出空间；转发时复用原请求字节，不再重新序列化大图 JSON。软限制应高于正常工作内存，避免反复回收导致读盘。QQ 不加内存硬限制。其他配置的服务器需按容量调整，磁盘路径 `/dev/vda` 也需匹配实际设备。
 
-`bjgbot-writeback.conf` 可安装到 `/etc/sysctl.d/`，将后台回写阈值设为 16MiB、脏页上限设为 64MiB，避免集中回写。`bjgbot-resource-monitor.service` 和 `.timer` 安装到 systemd 后启用定时器，每分钟记录内存、swap、I/O 压力和服务读写计数，保存在 `output/logs/resource-health.jsonl`，轮转最多约 3MiB，供故障后排查。普通访问日志不逐条记录，警告和错误仍保留；远程附件下载最多同时两条，普通文本不创建临时目录。
+`bjgbot-writeback.conf` 可安装到 `/etc/sysctl.d/`，将后台回写阈值设为 16MiB、脏页上限设为 64MiB，避免集中回写。支持 zswap 的服务器可安装并启用 `bjgbot-zswap.service`，将按需分配的压缩缓存上限设为内存的 15%；启用成功后再安装 `bjgbot-memory.conf` 到 `/etc/sysctl.d/` 并加载，将 swappiness 设为 30。原有 2GiB swap 加上 `/swapfile-bjgbot-extra` 的 2GiB 应急空间，合计约 4GiB，并通过 `/etc/fstab` 持久化；增加 swap 不能替代物理内存，也不保证消除磁盘等待。
+
+`bjgbot-python-resources.conf` 可安装为业务服务的 systemd drop-in，限制绘图计算库的内部线程和分配器 arena。绘图库仅在生成报表时加载，普通启动和题单刷新不加载；统计与题单网络采集最多八条并发，所有用户仍会被处理。生图和发送在 Agent 内按顺序排队，避免多张 4K 图片同时形成内存峰值，不增加聊天冷却、每日额度或回复次数上限。
+
+`bjgbot-resource-monitor.service` 和 `.timer` 安装到 systemd 后启用定时器，每分钟记录内存、swap、I/O 压力、服务读写、匿名页/文件页和文件页重新读入计数，保存在 `output/logs/resource-health.jsonl`，轮转最多约 3MiB，供故障后排查。普通访问日志不逐条记录，警告和错误仍保留；远程附件下载最多同时两条，普通文本不创建临时目录。
 
 ## 手机登录页
 

@@ -1,0 +1,34 @@
+--- a/src/modules/imagegen/index.js
++++ b/src/modules/imagegen/index.js
+@@ -12,6 +12,7 @@
+   files: ['features/imagegen.js'],
+   setup(api) {
+     const { hub, local } = api.core
++    let imageQueue = Promise.resolve()
+     const memory = api.lazy('memory')
+     const gen = createImageGen({ getConfig: api.config, log: api.log, local })
+     api.tool(({ chat, sessionId }) => (gen.enabled() && chat.kind !== 'system' ? defineTool({
+@@ -20,12 +21,17 @@
+       properties: { prompt: str('画面描述') },
+       required: ['prompt'],
+       execute: async ({ prompt }) => {
+-        if (api.config().imageGen.ownerOnly && !hub.turnSendersAllOwner(sessionId)) return { ok: false, message: '该操作需要管理员权限' }
+-        const buf = await gen.generate(String(prompt || ''))
+-        const sent = await hub.sendSegments(chat.chatId, [{ type: 'image', data: { file: 'base64://' + buf.toString('base64') } }], `[生图] ${String(prompt).slice(0, 30)}`)
+-        if (sent?.message_id == null) return { ok: false, message: '图片已生成，但发送没有成功' }
+-        memory.addEvent?.({ text: `画了一张图：${String(prompt).slice(0, 40)}`, about: chat.kind === 'private' ? chat.userId : '', tags: ['画画'], importance: 0.4 })
+-        return { ok: true, message: '画好发出去了' }
++        const job = imageQueue.then(async () => {
++          if (chat.kind === 'group' && !api.config().allow.groups.map(String).includes(chat.chatId.slice(6))) return { ok: false, message: '当前群聊已关闭' }
++          if (api.config().imageGen.ownerOnly && !hub.turnSendersAllOwner(sessionId)) return { ok: false, message: '该操作需要管理员权限' }
++          const buf = await gen.generate(String(prompt || ''))
++          const sent = await hub.sendSegments(chat.chatId, [{ type: 'image', data: { file: 'base64://' + buf.toString('base64') } }], `[生图] ${String(prompt).slice(0, 30)}`)
++          if (sent?.message_id == null) return { ok: false, message: '图片已生成，但发送没有成功' }
++          memory.addEvent?.({ text: `画了一张图：${String(prompt).slice(0, 40)}`, about: chat.kind === 'private' ? chat.userId : '', tags: ['画画'], importance: 0.4 })
++          return { ok: true, message: '画好发出去了' }
++        })
++        imageQueue = job.catch(() => {})
++        return job
+       },
+     }) : []))
+     return gen

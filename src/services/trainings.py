@@ -3,9 +3,6 @@ import re
 from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as pyplot
 from src.adapters import http
 from src.paths import REPORT_DIRECTORY
 from src.fonts import configure_matplotlib
@@ -110,7 +107,7 @@ def get_png(on_progress=None):
     problem_lists = load_training_problems()
     if on_progress:
         on_progress(0, len(participants))
-    with ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=8) as executor:
         pending = [executor.submit(fetch_user_progress, user, problem_lists) for user in participants]
         records = []
         for future in as_completed(pending):
@@ -126,6 +123,9 @@ def get_png(on_progress=None):
                     for training_id, label in TRAINING_LABELS.items()})
         row['总计'] = '查询失败' if record['failed'] else record['total']
         rows.append(row)
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as pyplot
     configure_matplotlib()
     figure, axes = pyplot.subplots(figsize=(20, max(2.5, len(rows) * 0.5)))
     axes.axis('off')

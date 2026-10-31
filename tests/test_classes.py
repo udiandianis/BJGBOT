@@ -49,8 +49,8 @@ class ClassBindingTests(unittest.TestCase):
              patch.object(trainings, 'load_training_problems', return_value={100: {'P1'}}), \
              patch.object(trainings, 'fetch_user_progress', side_effect=lambda user, problems: {'name': user['name'], 'failed': True}) as fetch, \
              patch.object(trainings, 'configure_matplotlib'), \
-             patch.object(trainings.pyplot, 'subplots', return_value=(Mock(), MagicMock())), \
-             patch.object(trainings.pyplot, 'close'), \
+             patch('matplotlib.pyplot.subplots', return_value=(Mock(), MagicMock())), \
+             patch('matplotlib.pyplot.close'), \
              patch.object(trainings, 'REPORT_DIRECTORY', Path(self.directory.name)):
             clock.now.return_value.year = 2026
             trainings.get_png()

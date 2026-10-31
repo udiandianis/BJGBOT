@@ -21,12 +21,21 @@ def record_snapshot():
                 services[unit] = {'memory_bytes': int((root / 'memory.current').read_text()),
                                   'memory_events': (root / 'memory.events').read_text().strip(),
                                   'io': (root / 'io.stat').read_text().strip()}
+                stat = dict(line.split() for line in (root / 'memory.stat').read_text().splitlines())
+                services[unit]['memory_stat'] = {key: int(stat[key]) for key in (
+                    'anon', 'file', 'file_mapped', 'workingset_refault_file', 'workingset_refault_anon') if key in stat}
+                services[unit]['memory_pressure'] = (root / 'memory.pressure').read_text().strip()
+                services[unit]['io_pressure'] = (root / 'io.pressure').read_text().strip()
             except FileNotFoundError:
                 continue
+    vmstat = dict(line.split() for line in Path('/proc/vmstat').read_text().splitlines())
     snapshot = {'time': datetime.now(timezone.utc).isoformat(),
                 'uptime_seconds': float(Path('/proc/uptime').read_text().split()[0]), 'memory_kib': memory, 'services': services,
                 'io_pressure': Path('/proc/pressure/io').read_text().strip(),
-                'memory_pressure': Path('/proc/pressure/memory').read_text().strip()}
+                'memory_pressure': Path('/proc/pressure/memory').read_text().strip(),
+                'vmstat': {key: int(vmstat[key]) for key in ('pgmajfault', 'pswpin', 'pswpout')},
+                'zswap': {key: path.read_text().strip() for key in ('enabled', 'max_pool_percent')
+                          if (path := Path('/sys/module/zswap/parameters') / key).exists()}}
     directory = PROJECT_ROOT / 'output/logs'
     directory.mkdir(parents=True, exist_ok=True)
     handler = RotatingFileHandler(directory / 'resource-health.jsonl', maxBytes=1024 * 1024, backupCount=2, encoding='utf-8')

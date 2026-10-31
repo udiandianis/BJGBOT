@@ -76,6 +76,9 @@ shutil.copy2(root / 'resources/agent/web-stickers/index.mjs', web_stickers / 'in
 vision_assist = data / 'modules/vision-assist'
 vision_assist.mkdir(parents=True, exist_ok=True)
 shutil.copy2(root / 'resources/agent/vision-assist/index.mjs', vision_assist / 'index.mjs')
+answer_review = data / 'modules/answer-review'
+answer_review.mkdir(parents=True, exist_ok=True)
+shutil.copy2(root / 'resources/agent/answer-review/index.mjs', answer_review / 'index.mjs')
 profile = home / 'profiles/web/cordis.patch.yml'
 shutil.copy2(profile, backup / 'dsh-cordis.patch.yml')
 patch_path = home / 'bjgbot-model.patch.json'

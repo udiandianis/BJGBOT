@@ -21,15 +21,18 @@ const server = createServer(async (req, res) => {
   try {
     const chunks = []
     for await (const chunk of req) chunks.push(chunk)
-    const params = JSON.parse(Buffer.concat(chunks).toString() || '{}')
+    const payload = Buffer.concat(chunks)
+    chunks.length = 0
+    let params = JSON.parse(payload.toString() || '{}')
     const cfg = current()
     if (params.group_id != null && /^(send_|set_group_|delete_msg)/.test(action)
         && !cfg.allow.groups.includes(String(params.group_id))) {
       return reply(200, { status: 'failed', retcode: 1403, message: '本群 Agent 已关闭' })
     }
+    params = null
     const upstream = await fetch(config.napcat.api_url.replace(/\/+$/, '') + '/' + action, {
       method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + config.napcat.api_token },
-      body: JSON.stringify(params), signal: AbortSignal.timeout(30_000),
+      body: payload.length ? payload : Buffer.from('{}'), signal: AbortSignal.timeout(30_000),
     })
     const data = await upstream.json()
     reply(upstream.status, data)
@@ -50,3 +53,4 @@ ws.on('connection', (peer) => {
     post_type: 'meta_event', meta_event_type: 'lifecycle', sub_type: 'connect' }))
 })
 server.listen(5030, '127.0.0.1', () => console.log('BJGBOT NapCat relay listening on 127.0.0.1:5030'))
+export { server }

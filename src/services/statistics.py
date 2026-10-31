@@ -1,8 +1,5 @@
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as pyplot
 from src.paths import REPORT_DIRECTORY
 from src.fonts import configure_matplotlib
 from src.storage import users
@@ -22,7 +19,7 @@ def collect_statistics(on_progress=None):
     completed = 0
     if on_progress:
         on_progress(0, len(participants))
-    with ThreadPoolExecutor(max_workers=32) as executor:
+    with ThreadPoolExecutor(max_workers=8) as executor:
         for user in participants:
             record = {'NAME': user['name'], 'platforms': {}, 'errors': [], 'accepted': 0, 'submitted': 0}
             records[user['qq_id']] = record
@@ -82,8 +79,11 @@ def save_report(figure):
     """保存统计图片并关闭图表。"""
     REPORT_DIRECTORY.mkdir(parents=True, exist_ok=True)
     output_path = REPORT_DIRECTORY / 'solve.png'
-    figure.savefig(output_path, bbox_inches='tight', dpi=300)
-    pyplot.close(figure)
+    from matplotlib import pyplot
+    try:
+        figure.savefig(output_path, bbox_inches='tight', dpi=300)
+    finally:
+        pyplot.close(figure)
 
 
 def get_png(on_progress=None):
@@ -98,6 +98,9 @@ def get_png(on_progress=None):
         row['ALL'] = '部分失败' if record['errors'] else f'{record["accepted"]}/{record["submitted"]}'
         row['RANK'] = record['rank']
         rows.append(row)
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as pyplot
     configure_matplotlib()
     figure, axes = pyplot.subplots(figsize=(15, max(2.5, 0.6 * len(rows))))
     axes.axis('off')

@@ -93,8 +93,8 @@ class QueryProgressTests(unittest.TestCase):
              patch.object(trainings, 'load_training_problems', return_value={100: {'P1'}}), \
              patch.object(trainings, 'fetch_user_progress', side_effect=lambda user, problems: {'name': user['name'], 'failed': True}), \
              patch.object(trainings, 'configure_matplotlib'), \
-             patch.object(trainings.pyplot, 'subplots', return_value=(Mock(), MagicMock())), \
-             patch.object(trainings.pyplot, 'close'), \
+             patch('matplotlib.pyplot.subplots', return_value=(Mock(), MagicMock())), \
+             patch('matplotlib.pyplot.close'), \
              patch.object(trainings, 'REPORT_DIRECTORY'):
             trainings.get_png(update)
         self.assertEqual(update.call_args_list, [call(0, 2), call(1, 2), call(2, 2)])
@@ -105,7 +105,7 @@ class QueryProgressTests(unittest.TestCase):
         figure, axes = Mock(), MagicMock()
         with patch.object(statistics, 'collect_statistics', return_value=({}, [record])), \
              patch.object(statistics, 'configure_matplotlib'), \
-             patch.object(statistics.pyplot, 'subplots', return_value=(figure, axes)), \
+             patch('matplotlib.pyplot.subplots', return_value=(figure, axes)), \
              patch.object(statistics, 'save_report'):
             statistics.get_png()
         table = axes.table.call_args.kwargs
@@ -126,8 +126,8 @@ class QueryProgressTests(unittest.TestCase):
              patch.object(trainings, 'load_training_problems', return_value=problems), \
              patch.object(trainings, 'fetch_user_progress', return_value=record), \
              patch.object(trainings, 'configure_matplotlib'), \
-             patch.object(trainings.pyplot, 'subplots', return_value=(figure, axes)), \
-             patch.object(trainings.pyplot, 'close'), patch.object(trainings, 'REPORT_DIRECTORY'):
+             patch('matplotlib.pyplot.subplots', return_value=(figure, axes)), \
+             patch('matplotlib.pyplot.close'), patch.object(trainings, 'REPORT_DIRECTORY'):
             trainings.get_png()
         row = axes.table.call_args.kwargs['cellText'][0]
         self.assertEqual(row[1:6], [4, 3, 1, 2, 0])
