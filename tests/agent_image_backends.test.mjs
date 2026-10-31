@@ -25,6 +25,7 @@ test('Gemini returns the final image, preserves the prompt and stops after prima
   assert(calls[0][0].endsWith('/models/pro:generateContent'))
   assert.equal(calls[0][1].contents[0].parts[0].text,'柔和，蓝鲸')
   assert.equal(calls[0][1].generationConfig.imageConfig.aspectRatio,'3:4')
+  assert.equal(calls[0][1].generationConfig.imageConfig.imageSize,'4K')
 })
 test('primary failure switches to Flash without calling Grok',async()=>{
   const urls=[];globalThis.fetch=async url=>{urls.push(url);return urls.length===1?fail():gemini()}
@@ -67,4 +68,36 @@ test('all provider keys are hidden from the panel and survive ordinary saves and
   assert.equal(saved.imageGen.fallbacks[0].model,'grok')
   assert.equal(saved.imageGen.fallbacks[0].apiKey,'grok-secret')
   assert.equal(saved.imageGen.fallbacks[1].apiKey,'flash-secret')
+})
+
+test('highest settings reach both Gemini backends and Grok Quality using provider-specific parameters',async()=>{
+  const c=config()
+  c.imageGen.resolution='4K'
+  c.imageGen.fallbacks[0].resolution='4K'
+  Object.assign(c.imageGen.fallbacks[1],{model:'grok-imagine-image-quality',resolution:'2K'})
+  const calls=[]
+  globalThis.fetch=async(url,o)=>{
+    calls.push([url,JSON.parse(o.body)])
+    return calls.length<3?fail():openai()
+  }
+  await generator(c).generate('蓝鲸')
+  assert.equal(calls.length,3)
+  assert.equal(calls[0][1].generationConfig.imageConfig.imageSize,'4K')
+  assert.equal(calls[1][1].generationConfig.imageConfig.imageSize,'4K')
+  assert.equal(calls[2][1].model,'grok-imagine-image-quality')
+  assert.equal(calls[2][1].resolution,'2k')
+  assert.equal(calls[2][1].aspect_ratio,'3:4')
+  for(const key of ['size','image_size','quality'])assert(!(key in calls[2][1]))
+})
+
+test('resolution settings normalize safely and Grok does not inherit unsupported 4K output',async()=>{
+  assert.equal(normalize({}).imageGen.resolution,'4K')
+  assert.equal(normalize({imageGen:{resolution:'4k'}}).imageGen.resolution,'4K')
+  assert.equal(normalize({imageGen:{resolution:'invalid'}}).imageGen.resolution,'4K')
+  const c=config()
+  Object.assign(c.imageGen,{provider:'openai',model:'grok-imagine-image-quality',resolution:'4K',fallbacks:[]})
+  let body
+  globalThis.fetch=async(url,o)=>{body=JSON.parse(o.body);return openai()}
+  await generator(c).generate('蓝鲸')
+  assert.equal(body.resolution,'2k')
 })

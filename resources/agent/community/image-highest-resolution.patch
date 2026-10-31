@@ -1,0 +1,50 @@
+--- a/src/features/imagegen.js
++++ b/src/features/imagegen.js
+@@ -9,13 +9,17 @@
+     const headers = { 'content-type': 'application/json' }
+     if (c.apiKey) headers.authorization = `Bearer ${c.apiKey}`
+     const gemini = c.provider === 'gemini'
++    const grok = /^grok-imagine-image(?:-|$)/.test(String(c.model))
++    const resolution = String(c.resolution || '4K').toUpperCase()
+     const ratios = { '1024x1024': '1:1', '512x512': '1:1', '768x1024': '3:4', '1024x768': '4:3',
+       '1792x1024': '16:9', '1024x1792': '9:16', '1536x1024': '3:2', '1024x1536': '2:3' }
+     const body = gemini ? {
+       contents: [{ role: 'user', parts: [{ text: prompt }] }],
+       generationConfig: { responseModalities: ['TEXT', 'IMAGE'],
+-        imageConfig: { aspectRatio: ratios[c.size] || '1:1', imageSize: '1K' } },
+-    } : { model: c.model, prompt, size: c.size, n: 1, response_format: 'b64_json', image_size: c.size }
++        imageConfig: { aspectRatio: ratios[c.size] || '1:1', imageSize: resolution } },
++    } : grok ? { model: c.model, prompt, n: 1, response_format: 'b64_json',
++      aspect_ratio: ratios[c.size] || '1:1', resolution: resolution === '1K' ? '1k' : '2k' }
++      : { model: c.model, prompt, size: c.size, n: 1, response_format: 'b64_json', image_size: c.size }
+     const url = gemini ? `${base}/models/${encodeURIComponent(c.model)}:generateContent` : `${base}/images/generations`
+     const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body),
+       signal: AbortSignal.timeout(Number(c.timeoutMs) || 60000) })
+--- a/src/core/config.js
++++ b/src/core/config.js
+@@ -34,6 +34,7 @@
+     apiKey: '',
+     model: '',
+     size: '1024x1024',
++    resolution: '4K',
+     fallbacks: [],
+     stylePrompt: '', // 每次生图自动加在前面的风格描述
+     ownerOnly: true, // 只有管理员能让她画
+@@ -254,6 +255,7 @@
+   c.imageGen.fallbacks = Array.isArray(c.imageGen.fallbacks) ? c.imageGen.fallbacks.filter(isObj) : []
+   c.imageGen.enabled = bool(c.imageGen.enabled, false)
+   c.imageGen.ownerOnly = bool(c.imageGen.ownerOnly, true)
++  c.imageGen.resolution = ['1K', '2K', '4K'].includes(String(c.imageGen.resolution).toUpperCase()) ? String(c.imageGen.resolution).toUpperCase() : '4K'
+   if (!/^\d{3,4}x\d{3,4}$/.test(String(c.imageGen.size))) c.imageGen.size = '1024x1024'
+   c.song.enabled = bool(c.song.enabled, false)
+   c.song.ownerOnly = bool(c.song.ownerOnly, true)
+--- a/client/client.js
++++ b/client/client.js
+@@ -1644,6 +1644,7 @@
+           h(Row, { label: 'API Key', hint: '只存在本机，不会显示出来' }, f.text('imageGen.apiKey', { type: 'password', placeholder: c.apiKeySet ? '已保存（不改就留空）' : '没有就留空' })),
+           h(Row, { label: '模型' }, f.text('imageGen.model', { size: 'wide', placeholder: '例如 Kwai-Kolors/Kolors' })),
+           h(Row, { label: '图片尺寸' }, f.select('imageGen.size', [{ value: '1024x1024', label: '1024 × 1024', desc: '方图' }, { value: '768x1024', label: '768 × 1024', desc: '竖图' }, { value: '1024x768', label: '1024 × 768', desc: '横图' }, { value: '512x512', label: '512 × 512', desc: '小图，更快' }], { width: 200 })),
++          h(Row, { label: '输出分辨率', hint: 'Gemini 最高 4K，Grok 最高 2K；备用模型可单独配置' }, f.select('imageGen.resolution', [{ value: '4K', label: '4K（最高）' }, { value: '2K', label: '2K' }, { value: '1K', label: '1K' }])),
+           h(Row, { label: '固定风格', hint: '每次画都会加在描述前面' }, f.text('imageGen.stylePrompt', { size: 'wide', placeholder: '例如：日系二次元，柔和光线，蓝白配色' })),
+           c.fallbacks?.length ? h('div', { className: 'ab-note' }, '优先顺序：' + [c.model, ...c.fallbacks.map(x => x.model)].join(' → ')) : null,
+           h(Row, { label: '仅管理员可画图', hint: '关掉后群友也能让她画（会花你的额度）' }, f.sw('imageGen.ownerOnly')),
