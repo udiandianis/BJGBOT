@@ -29,7 +29,7 @@
 
 复用 `config/bot_settings.json` 的 `ai.deepseek` 地址、模型和 Key，不需要另配 GPT。原有 `#GPT` 是既有独立功能。社区支持的生图、翻唱等功能需要各自的模型或运行环境，不会因为加载了模块就自动可用。空间发布、B 站互动和向管理员定时推送未配置，首次接入默认关闭；其余尽量保留原版默认值。
 
-模型使用 DSH 原生 `deepseek-official` 适配器和官方当前名称 `deepseek-flash`，直接获得图文、工具调用、推理和上下文能力声明；不另外维护一份模型能力表。原配置的 `deepseek-chat` 已实测由官方服务端映射到 Flash，配置脚本会更新为正式名称，Key 不变。
+模型使用 DSH 原生 `deepseek-official` 适配器和官方当前名称 `deepseek-flash`，直接获得图文、工具调用、推理和上下文能力声明；不另外维护一份模型能力表。聊天推理档位固定为最高的 `max`，由原生适配器传入 `output_config.effort`；配置脚本会同步这一档位。原配置的 `deepseek-chat` 已实测由官方服务端映射到 Flash，配置脚本会更新为正式名称，Key 不变。
 
 图片直接交给 DeepSeek Flash 识别，没有额外的 GPT 识图服务。语音依赖社区 TTS/ASR 的可用性；原版内置语音安装器和本机语音回退偏向 Windows，本次 Linux 部署未配置语音和翻唱服务。
 

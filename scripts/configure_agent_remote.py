@@ -54,7 +54,7 @@ if aurabot.get('ownerName', '主人') in ('', '主人'):
     aurabot['ownerName'] = '管理员'
 aurabot.update(enabled=True, dryRun=False, setupDone=True, botQQ=str(config['bot']['qq']),
                ownerQQ=owner_qq, ownerLevel='full',
-               model={'provider': 'deepseek-official', 'model': config['ai']['deepseek']['model'], 'reasoningEffort': 'low'})
+               model={'provider': 'deepseek-official', 'model': config['ai']['deepseek']['model'], 'reasoningEffort': 'max'})
 aurabot['snowluma'] = dict(aurabot.get('snowluma', {}), autoStart=False, autoAttach=False,
                            httpUrl='http://127.0.0.1:5030/onebot', wsUrl='ws://127.0.0.1:5030/onebot',
                            httpToken=token, wsToken=token)
